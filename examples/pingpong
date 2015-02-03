@@ -1,0 +1,29 @@
+#! /usr/bin/env mpibash
+
+#####################################
+# Measure mpibash ping-pong latency #
+# By Scott Pakin <pakin@lanl.gov>   #
+#####################################
+
+niters=1000000
+mpi_comm_rank rank
+
+mpi_barrier
+if [ $rank -eq 0 ] ; then
+    echo "Performing $niters round-trip communications..."
+    time {
+	iter=0
+	while [ $iter -lt $niters ] ; do
+	    mpi_send 1 X
+	    mpi_recv 1 msginfo
+	    let iter++
+	done
+    }
+else
+    iter=0
+    while [ $iter -lt $niters ] ; do
+	mpi_recv 0 msginfo
+	mpi_send 0 X
+	let iter++
+    done
+fi

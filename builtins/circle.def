@@ -1,0 +1,620 @@
+This file is circle.def, from which is created circle.c.
+It implements all of the "circle_*" builtins in Bash.
+
+$PRODUCES circle.c
+
+#include <config.h>
+
+#include <stdio.h>
+#if defined (HAVE_UNISTD_H)
+#  ifdef _MINIX
+#    include <sys/types.h>
+#  endif
+#  include <unistd.h>
+#endif
+
+#include "../bashintl.h"
+#include "../shell.h"
+#include "common.h"
+#include "bashgetopt.h"
+#include <libcircle.h>
+
+extern int running_trap, trap_saved_exit_value;
+
+static int circle_rank;          /* Rank in the Libcircle job */
+static SHELL_VAR *create_func = NULL;   /* User-defined callback function for CIRCLE_cb_create. */
+static SHELL_VAR *process_func = NULL;  /* User-defined callback function for CIRCLE_cb_process. */
+static SHELL_VAR *reduce_init_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_init. */
+static SHELL_VAR *reduce_fini_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_fini. */
+static SHELL_VAR *reduce_op_func = NULL;   /* User-defined callback function for CIRCLE_cb_reduce_op. */
+static CIRCLE_handle *current_handle = NULL;   /* Active handle within a callback or NULL if not within a callback */
+static int within_reduction = 0;           /* 1=within a reduction callback; 0=not */
+
+/* Return with a usage message if no arguments remain. */
+#define YES_ARGS(LIST)                          \
+  if ((LIST) == 0)                              \
+    {                                           \
+      builtin_usage ();                         \
+      return (EX_USAGE);                        \
+    }
+
+/* Perform the same operation as bind_variable, but with VALUE being a
+ * number, not a string. */
+static SHELL_VAR *
+bind_variable_number (name, value, flags)
+     const char *name;
+     long value;
+     int flags;
+{
+  char numstr[25];    /* String version of VALUE */
+
+  sprintf (numstr, "%ld", value);
+  return bind_variable (name, numstr, flags);
+}
+
+/* Invoke the user-defined creation-callback function (create_func). */
+static void
+internal_create_func (handle)
+     CIRCLE_handle *handle;
+{
+  WORD_LIST *funcargs;
+
+  if (create_func == NULL)
+    return;
+  current_handle = handle;
+  funcargs = make_word_list (make_word ("cb_create"), NULL);
+  execute_shell_function (create_func, funcargs);
+  dispose_words (funcargs);
+  current_handle = NULL;
+}
+
+/* Invoke the user-defined process-callback function (process_func). */
+static void
+internal_process_func (handle)
+     CIRCLE_handle *handle;
+{
+  WORD_LIST *funcargs;
+
+  if (process_func == NULL)
+    return;
+  current_handle = handle;
+  funcargs = make_word_list (make_word ("cb_process"), NULL);
+  execute_shell_function (process_func, funcargs);
+  dispose_words (funcargs);
+  current_handle = NULL;
+}
+
+/* Invoke the user-defined reduction-initiation callback function
+ * (reduce_init_func). */
+static void
+internal_reduce_init_func (void)
+{
+  WORD_LIST *funcargs;
+
+  if (reduce_init_func == NULL)
+    return;
+  within_reduction = 1;
+  funcargs = make_word_list (make_word ("cb_reduce_init"), NULL);
+  execute_shell_function (reduce_init_func, funcargs);
+  dispose_words (funcargs);
+  within_reduction = 0;
+}
+
+/* Invoke the user-defined reduction callback function
+ * (reduce_op_func). */
+static void
+internal_reduce_op_func (buf1, size1, buf2, size2)
+     const void* buf1;
+     size_t size1;
+     const void* buf2;
+     size_t size2;
+{
+  WORD_LIST *funcargs;
+
+  if (reduce_op_func == NULL)
+    return;
+  within_reduction = 1;
+  funcargs = make_word_list (make_word (buf2), NULL);
+  funcargs = make_word_list (make_word (buf1), funcargs);
+  funcargs = make_word_list (make_word ("cb_reduce_op"), funcargs);
+  execute_shell_function (reduce_op_func, funcargs);
+  dispose_words (funcargs);
+  within_reduction = 0;
+}
+
+/* Invoke the user-defined reduction-finalization callback function
+ * (reduce_fini_func). */
+static void
+internal_reduce_fini_func (buf, size)
+     const void* buf;
+     size_t size;
+{
+  WORD_LIST *funcargs;
+
+  if (reduce_fini_func == NULL)
+    return;
+  funcargs = make_word_list (make_word (buf), NULL);
+  funcargs = make_word_list (make_word ("cb_reduce_fini"), funcargs);
+  execute_shell_function (reduce_fini_func, funcargs);
+  dispose_words (funcargs);
+}
+
+/* Look up a user-provided callback function. */
+static int
+find_callback_function (list, user_func)
+     WORD_LIST *list;
+     SHELL_VAR **user_func;
+{
+  char *funcname;   /* Name of the user-defined function. */
+
+  /* If no argument was provided, nullify the callback function. */
+  if (list == NULL)
+    {
+      *user_func = NULL;
+      return EXECUTION_SUCCESS;
+    }
+
+  /* Get the callback function. */
+  funcname = list->word->word;
+  list = list->next;
+  no_args (list);
+  *user_func = find_function (funcname);
+  if (*user_func == NULL)
+    {
+      builtin_error (_("function %s not found"), funcname);
+      return EXECUTION_FAILURE;
+    }
+  return EXECUTION_SUCCESS;
+}
+
+/* Initialize Libcircle. */
+void
+initialize_libcircle (argc, argv)
+     int argc;
+     char **argv;
+{
+  circle_rank = CIRCLE_init (argc, argv, CIRCLE_DEFAULT_FLAGS);
+  bind_variable_number ("circle_rank", circle_rank, 0);
+  CIRCLE_enable_logging (CIRCLE_LOG_WARN);
+  CIRCLE_cb_create (internal_create_func);
+  CIRCLE_cb_process (internal_process_func);
+  CIRCLE_cb_reduce_init (internal_reduce_init_func);
+  CIRCLE_cb_reduce_op (internal_reduce_op_func);
+  CIRCLE_cb_reduce_fini (internal_reduce_fini_func);
+}
+
+/* Finalize Libcircle. */
+void
+finalize_libcircle (void)
+{
+  CIRCLE_finalize ();
+}
+
+/* ---------------------------------------------------------------------- */
+
+$BUILTIN circle_set_options
+$FUNCTION circle_set_options_builtin
+$SHORT_DOC circle_set_options [flag]...
+Change Libcircle's run-time behavior.
+
+Arguments:
+  FLAG          "split_random", "split_equal", or "create_global"
+
+Multiple flags can be provided.  If no flags are provided, Libcircle
+reverts to its default options.
+
+Exit Status:
+Returns 0 unless an invalid option is given.
+$END
+/*'*/
+
+/* Here is the circle_set_options builtin. */
+int
+circle_set_options_builtin (list)
+     WORD_LIST *list;
+{
+  char *word;          /* One argument */
+  int flags = 0;       /* Flags to pass to CIRCLE_set_options */
+
+  if (list == NULL)
+    flags = CIRCLE_DEFAULT_FLAGS;
+  else
+    while (list != NULL)
+      {
+        word = list->word->word;
+        if (!strcmp (word, "split_random"))
+          flags |= CIRCLE_SPLIT_RANDOM;
+        else if (!strcmp (word, "split_equal"))
+          flags |= CIRCLE_SPLIT_EQUAL;
+        else if (!strcmp (word, "create_global"))
+          flags |= CIRCLE_CREATE_GLOBAL;
+        else
+          {
+            builtin_error (_("invalid flag \"%s\""), word);
+            return (EXECUTION_FAILURE);
+          }
+        list = list->next;
+      }
+  CIRCLE_set_options (flags);
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN circle_cb_create
+$FUNCTION circle_cb_create_builtin
+$SHORT_DOC circle_cb_create [func]
+Register a function that will create work when asked.
+
+Arguments:
+  FUNC          User-defined callback function that will invoke
+                circle_enqueue when called
+
+If FUNC is omitted, no function will be associated with work creation.
+This can be used to nullify a previous circle_cb_create invocation.
+
+Exit Status:
+Returns 0 unless an invalid function is given or an error occurs.
+$END
+
+/* Here is the circle_cb_create builtin. */
+int
+circle_cb_create_builtin (list)
+     WORD_LIST *list;
+{
+  return find_callback_function (list, &create_func);
+}
+
+$BUILTIN circle_cb_process
+$FUNCTION circle_cb_process_builtin
+$SHORT_DOC circle_cb_process [func]
+Register a function that will process work when asked.
+
+Arguments:
+  FUNC          User-defined callback function that will invoke
+                circle_enqueue when called
+
+If FUNC is omitted, no function will be associated with work processing.
+This can be used to nullify a previous circle_cb_process invocation.
+
+Exit Status:
+Returns 0 unless an invalid function is given or an error occurs.
+$END
+
+/* Here is the circle_cb_process builtin. */
+int
+circle_cb_process_builtin (list)
+     WORD_LIST *list;
+{
+  return find_callback_function (list, &process_func);
+}
+
+$BUILTIN circle_begin
+$FUNCTION circle_begin_builtin
+$SHORT_DOC circle_begin
+Begin creation and processing of the distributed work queue.
+
+Exit Status:
+Returns 0 unless an error occurs.
+$END
+
+/* Here is the circle_begin builtin. */
+int
+circle_begin_builtin (list)
+     WORD_LIST *list;
+{
+  no_args (list);
+  CIRCLE_begin ();
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN circle_enqueue
+$FUNCTION circle_enqueue_builtin
+$SHORT_DOC circle_enqueue work
+Enqueue work onto the distributed queue.
+
+Arguments:
+  WORK          "Work" as represented by an arbitrary string of limited
+                size (generally around 4KB)
+
+Exit Status:
+Returns 0 unless an error occurs.
+$END
+
+/* Here is the circle_enqueue builtin. */
+int
+circle_enqueue_builtin (list)
+     WORD_LIST *list;
+{
+  char *work;          /* Work to perform */
+
+  /* Extract the work argument. */
+  YES_ARGS (list);
+  work = list->word->word;
+  list = list->next;
+  no_args (list);
+
+  /* Complain if we're not within a proper callback function. */
+  if (current_handle == NULL)
+    {
+      builtin_error (_("not within a Libcircle \"create\" or \"process\" callback function"));
+      return EXECUTION_FAILURE;
+    }
+
+  /* Enqueue the work. */
+  if (current_handle->enqueue (work) == -1)
+    return EXECUTION_FAILURE;
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN circle_dequeue
+$FUNCTION circle_dequeue_builtin
+$SHORT_DOC circle_dequeue var
+Dequeue work from the distributed queue into a variable.
+
+Arguments:
+  VAR           Variable in which to receive previously enqueued "work"
+
+Exit Status:
+Returns 0 unless an error occurs.
+$END
+
+/* Here is the circle_dequeue builtin. */
+int
+circle_dequeue_builtin (list)
+     WORD_LIST *list;
+{
+  char *varname;       /* Variable in which to store the work string */
+  char work[CIRCLE_MAX_STRING_LEN+1];  /* Work to perform */
+
+  /* Extract the variable-name argument. */
+  YES_ARGS (list);
+  varname = list->word->word;
+  list = list->next;
+  no_args (list);
+
+  /* Complain if we're not within a callback function. */
+  if (current_handle == NULL)
+    {
+      builtin_error (_("not within a Libcircle callback function"));
+      return EXECUTION_FAILURE;
+    }
+
+  /* Dequeue the work and bind it to the given variable. */
+  if (current_handle->dequeue (work) == -1)
+    return EXECUTION_FAILURE;
+  bind_variable (varname, work, 0);
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN circle_enable_logging
+$FUNCTION circle_enable_logging_builtin
+$SHORT_DOC circle_enable_logging log_level
+Change Libcircle's logging verbosity
+
+Arguments:
+  LOG_LEVEL     "fatal", "error", "warning", "info", or "debug"
+
+Exit Status:
+Returns 0 unless an invalid option is given.
+$END
+/*'*/
+
+/* Here is the circle_enable_logging builtin. */
+int
+circle_enable_logging_builtin (list)
+     WORD_LIST *list;
+{
+  char *word;                   /* One argument */
+  CIRCLE_loglevel loglevel;     /* Level to set */
+
+  /* Parse the log level. */
+  YES_ARGS (list);
+  word = list->word->word;
+  if (!strcmp (word, "fatal"))
+    loglevel = CIRCLE_LOG_FATAL;
+  else if (!strcmp (word, "error"))
+    loglevel = CIRCLE_LOG_ERR;
+  else if (!strcmp (word, "warning"))
+    loglevel = CIRCLE_LOG_WARN;
+  else if (!strcmp (word, "info"))
+    loglevel = CIRCLE_LOG_INFO;
+  else if (!strcmp (word, "debug"))
+    loglevel = CIRCLE_LOG_DBG;
+  else
+    {
+      builtin_error (_("invalid log level \"%s\""), word);
+      return (EXECUTION_FAILURE);
+    }
+
+  /* Set the log level. */
+  CIRCLE_enable_logging (loglevel);
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN circle_abort
+$FUNCTION circle_abort_builtin
+$SHORT_DOC circle_abort
+Terminate queue processing.
+
+Exit Status:
+Returns 0 unless an error occurs.
+$END
+
+/* Here is the circle_abort builtin. */
+int
+circle_abort_builtin (list)
+     WORD_LIST *list;
+{
+  no_args (list);
+  CIRCLE_abort ();
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN circle_checkpoint
+$FUNCTION circle_checkpoint_builtin
+$SHORT_DOC circle_checkpoint
+Checkpoint a work queue to disk.
+
+Write a file called circle${circle_rank}.txt containing the current
+queue state of rank ${circle_rank}.  On a later run, a worker can
+invoke circle_read_restarts to repopulate its queue from such a
+checkpoint file.
+
+Exit Status:
+Returns 0 unless an error occurs.
+$END
+/*'*/
+
+/* Here is the circle_checkpoint builtin. */
+int
+circle_checkpoint_builtin (list)
+     WORD_LIST *list;
+{
+  no_args (list);
+  CIRCLE_checkpoint ();
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN circle_read_restarts
+$FUNCTION circle_read_restarts_builtin
+$SHORT_DOC circle_read_restarts
+Repopulate a work queue from a disk checkpoint.
+
+Read queue contents from a file called circle${circle_rank}.txt, which
+was previously produced by circle_checkpoint.
+
+Exit Status:
+Returns 0 unless an error occurs.
+$END
+/*'*/
+
+/* Here is the circle_read_restarts builtin. */
+int
+circle_read_restarts_builtin (list)
+     WORD_LIST *list;
+{
+  no_args (list);
+  CIRCLE_read_restarts ();
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN circle_cb_reduce_init
+$FUNCTION circle_cb_reduce_init_builtin
+$SHORT_DOC circle_cb_reduce_init [func]
+Register a function that will initiate a reduction operation.
+
+Arguments:
+  FUNC          User-defined callback function that will invoke
+                circle_reduce when called
+
+FUNC will be invoked on all ranks.
+
+If FUNC is omitted, no function will be associated with reduction
+initialization.  This can be used to nullify a previous
+circle_cb_reduce_init invocation.
+
+Exit Status:
+Returns 0 unless an invalid function is given or an error occurs.
+$END
+
+/* Here is the circle_cb_reduce_init builtin. */
+int
+circle_cb_reduce_init_builtin (list)
+     WORD_LIST *list;
+{
+  return find_callback_function (list, &reduce_init_func);
+}
+
+$BUILTIN circle_cb_reduce_op
+$FUNCTION circle_cb_reduce_op_builtin
+$SHORT_DOC circle_cb_reduce_op [func]
+Register a function that will complete a reduction operation.
+
+Arguments:
+  FUNC          User-defined callback function that will receive
+                two items to reduce and invoke circle_reduce on
+                the reduced value
+
+If FUNC is omitted, no function will be associated with reduction
+execution.  This can be used to nullify a previous circle_cb_reduce_op
+invocation.
+
+Exit Status:
+Returns 0 unless an invalid function is given or an error occurs.
+$END
+
+/* Here is the circle_cb_reduce_op builtin. */
+int
+circle_cb_reduce_op_builtin (list)
+     WORD_LIST *list;
+{
+  return find_callback_function (list, &reduce_op_func);
+}
+
+$BUILTIN circle_cb_reduce_fini
+$FUNCTION circle_cb_reduce_fini_builtin
+$SHORT_DOC circle_cb_reduce_fini [func]
+Register a function that will complete a reduction operation.
+
+Arguments:
+  FUNC          User-defined callback function that will receive
+                the final reduced data
+
+If FUNC is omitted, no function will be associated with reduction
+completion.  This can be used to nullify a previous
+circle_cb_reduce_fini invocation.
+
+Libcircle guarantees that FUNC will be invoked only on rank 0.
+
+Exit Status:
+Returns 0 unless an invalid function is given or an error occurs.
+$END
+
+/* Here is the circle_cb_reduce_fini builtin. */
+int
+circle_cb_reduce_fini_builtin (list)
+     WORD_LIST *list;
+{
+  return find_callback_function (list, &reduce_fini_func);
+}
+
+$BUILTIN circle_reduce
+$FUNCTION circle_reduce_builtin
+$SHORT_DOC circle_reduce work
+Seed the next phase of a reduction operation
+
+Arguments:
+  WORK          "Work" as represented by an arbitrary string of limited
+                size (generally around 4KB)
+
+This function should be called both by the callback function
+registered with circle_reduce_init and the callback function
+registered with circle_reduce_op.
+
+Exit Status:
+Returns 0 unless an error occurs.
+$END
+
+/* Here is the circle_reduce builtin. */
+int
+circle_reduce_builtin (list)
+     WORD_LIST *list;
+{
+  char *work;          /* Work to perform */
+
+  /* Extract the work argument. */
+  YES_ARGS (list);
+  work = list->word->word;
+  list = list->next;
+  no_args (list);
+
+  /* Complain if we're not within a proper callback function. */
+  if (!within_reduction)
+    {
+      builtin_error (_("not within a Libcircle \"reduce_init\" or \"reduce_op\" callback function"));
+      return EXECUTION_FAILURE;
+    }
+
+  /* Reduce the work. */
+  CIRCLE_reduce (work, strlen (work));
+  return EXECUTION_SUCCESS;
+}

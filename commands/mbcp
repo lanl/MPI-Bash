@@ -1,0 +1,281 @@
+#! /usr/bin/env mpibash
+
+##########################################
+# Quickly copy large files using mpibash #
+# By Scott Pakin                         #
+##########################################
+
+# Define the maximum number of bytes to read/write at once.  This
+# should be large enough to get good performance from a parallel
+# filesystem but not so large that it thrashes the TLB.
+maxblocksize=104857600
+
+# Store the name of this script for use in generating error messages.
+progname=$(basename "$0")
+
+# Cache MPI parameters.
+mpi_comm_rank rank
+mpi_comm_size nranks
+
+# Define a character that must not appear in a filespec.
+sep=$'\t'
+
+# Define a function to issue an warning message.
+function warn () {
+    if [ "$1" = "*" -o $rank -eq "$1" ] ; then
+	shift
+	echo "${progname}: $*" 1>&2
+    fi
+}
+
+# Define a function to issue an error message and abort the program.
+function abend () {
+    warn "$@"
+    exit 1
+}
+
+# Require Libcircle-enabled MPI-Bash.
+if [ $libcircle != yes ] ; then
+    abend 0 "To run this script, MPI-Bash must be built against Libcircle"
+fi
+
+# Parse the command line.
+recursive=no
+verbosity=0
+clobber=yes
+dereference=yes
+preserve_attrs=no
+usagestr="Usage: $progname [-r] [-v] [-n] [-P] [-p] [-a] <file>... <file|directory>"
+while getopts rvnPpa optname ; do
+    case $optname in
+        \?)
+            exit 1
+            ;;
+        r)
+            recursive=yes
+	    ;;
+
+        v)
+            let verbosity++
+	    ;;
+        n)
+            clobber=no
+	    ;;
+
+	P)
+	    dereference=no
+	    ;;
+
+	p)
+	    preserve_attrs=yes
+	    ;;
+
+	a)
+	    dereference=no
+	    preserve_attrs=yes
+	    recursive=yes
+	    ;;
+    esac
+done
+shift $((OPTIND-1))
+if [ $# -lt 2 ] ; then
+    if [ $rank -eq 0 ] ; then
+	echo $usagestr 1>&2
+    fi
+    exit 1
+fi
+source_names=("$@")
+unset source_names[${#source_names[@]}-1]
+
+# Determine if we're copying one file to another or one or more files
+# into a directory.
+target_name="${@: -1}"
+if [ ${#source_names[@]} -eq 1 ] ; then
+    if [ -d "${source_names[0]}" ] ; then
+	source_type=dir
+    else
+	source_type=file
+    fi
+else
+    source_type=many
+fi
+if [ -e "$target_name" ] ; then
+    if [ -d "$target_name" ] ; then
+	target_type=dir
+    else
+	target_type=file
+    fi
+else
+    target_type=$source_type
+fi
+copy_type="${source_type}-to-${target_type}"
+case $copy_type in
+    file-to-file|dir-to-dir|file-to-dir|many-to-dir)
+	;;
+
+    many-to-many|many-to-file)
+	abend 0 "target '$target_name' is not a directory"
+	;;
+
+    dir-to-file)
+	if [ $recursive = yes ] ; then
+	    abend 0 "cannot overwrite non-directory '$target_name' with directory '${source_name[0]}'"
+	fi
+	;;
+
+    *)
+	abend 0 "internal error in $0"
+	;;
+esac
+
+# Define a function that copies permissions only if $preserve_attrs is "yes".
+function maybe_copy_attrs () {
+    if [ $preserve_attrs = yes ] ; then
+	cp -r -p --attributes-only "$1" "$2"
+    fi
+}
+
+# Define a function that takes input and output filenames and enqueues
+# copies of each of the input filename's constituent segments.
+function enqueue_segments () {
+    # Enqueue directories exactly once.
+    local infile="$1"
+    local outfile="$2"
+    if [ -d "$infile" ] ; then
+	circle_enqueue "0${sep}1${sep}1$sep$infile$sep$outfile"
+	return
+    fi
+
+    # Analyze the input file.
+    local insize=$(stat -L -c%s "$infile")
+    if [ $? -ne 0 ] ; then
+	return
+    fi
+    local segments
+    if [ $insize -eq 0 ] ; then
+	segments=1
+    else
+	(( segments = ($insize + $maxblocksize - 1)/$maxblocksize ))
+    fi
+
+    # Delete the output file.  Otherwise, we might overwrite a piece
+    # of a large, existing target but never truncate it to its new
+    # size.
+    if [ ! -d "$infile" -a -d "$outfile" ] ; then
+	warn "*" "cannot overwrite directory ‘$outfile’ with non-directory '$infile'" 1>&2
+	return
+    elif [ -d "$infile" -a -e "$outfile" -a ! -d "$outfile" ] ; then
+	warn "*" "cannot overwrite non-directory ‘$outfile’ with directory '$infile'" 1>&2
+	return
+    fi
+    if [ $clobber = no -a -e "$outfile" ] ; then
+	return
+    fi
+    rm -rf "$outfile"
+
+    # Enqueue $segments segments of work.
+    local ofs
+    for (( ofs=0; ofs < $insize; ofs += $maxblocksize )) ; do
+	circle_enqueue "$ofs$sep$segments$sep$insize$sep$infile$sep$outfile"
+    done
+}
+
+# Define a function to initialize the copying.
+function initialize_copying () {
+    local infile outfile
+    for infile in "${source_names[@]}" ; do
+	if [ -d "$infile" -a $recursive = no ] ; then
+	    warn 0 "omitting directory '$infile'"
+	else
+	    if [ $copy_type = dir-to-dir ] ; then
+		outfile="$target_name"
+	    else
+		outfile="$target_name/"$(basename "$infile")
+	    fi
+	    enqueue_segments "$infile" "$outfile"
+	fi
+    done
+}
+
+# Define a function to copy one piece of one file.  Directories are
+# created and their contents enqueued.
+function copy_piece () {
+    # Dequeue and parse a work item.
+    circle_dequeue work_item
+    local fields
+    IFS="$sep" read -a fields <<< "$work_item"
+    local ofs="${fields[0]}"
+    local nsegs="${fields[1]}"
+    local size="${fields[2]}"
+    local infile="${fields[3]}"
+    local outfile="${fields[4]}"
+
+    # Complain if the input and output file types don't match.
+    if [ -e "$outfile" ] ; then
+	if [ -d "$infile" -a ! -d "$outfile" ] ; then
+	    if [ $ofs -eq 0 ] ; then
+		warn "*" "${progname}: cannot overwrite non-directory '$outfile' with directory '$infile'"
+	    fi
+	    return
+	elif [ ! -d "$infile" -a -d "$outfile" ] ; then
+	    if [ $ofs -eq 0 ] ; then
+		warn "*" "${progname}: cannot overwrite directory '$outfile' with non-directory '$infile'"
+	    fi
+	    return
+	fi
+    fi
+
+    # If the input file is a directory, create a target directory and
+    # enqueue its contents for subsequent processing.
+    if [ -d "$infile" ] ; then
+	if [ ! -e "$outfile" ] ; then
+	    mkdir "$outfile"
+	    if [ $? -ne 0 ] ; then
+		warn "*" "Failed to create directory '$outfile'"
+		return
+	    fi
+	    maybe_copy_attrs "$infile" "$outfile"
+	fi
+	local dircontents=($(ls -A "$infile"))
+	for fname in "${dircontents[@]}" ; do
+	    enqueue_segments "$infile/$fname" "$outfile/$fname"
+	done
+	return
+    fi
+
+    # The input file is not a directory.  If it's a symbolic link and
+    # we were asked to preserve links, copy the link.
+    if [ -L "$infile" -a $dereference = no ] ; then
+	if [ $verbosity -ge 1 ] ; then
+	    echo "'$infile' -> '$outfile' (symbolic link)"
+	fi
+	cp -P "$infile" "$outfile"
+	maybe_copy_attrs "$infile" "$outfile"
+    fi
+
+    # The input file is not a directory.  Copy whatever segment we
+    # were assigned.
+    local blocksize=$size
+    if [ $blocksize -gt $maxblocksize ] ; then
+	blocksize=$maxblocksize
+    fi
+    if [ $verbosity -ge 1 ] ; then
+	(( seg = $ofs/$maxblocksize + 1 ))
+	echo "'$infile' -> '$outfile' (fragment $seg of $nsegs)"
+    fi
+    infile=$(readlink -e "$infile")
+    dd status=none conv=notrunc bs=$blocksize iflag=skip_bytes,count_bytes skip=$ofs count=$blocksize oflag=seek_bytes seek=$ofs if="$infile" of="$outfile"
+    if [ $ofs -eq 0 ] ; then
+	maybe_copy_attrs "$infile" "$outfile"
+    fi
+}
+
+# Use Libcircle to distribute the copying work.
+if [ $verbosity -ge 3 ] ; then
+    circle_enable_logging debug
+elif [ $verbosity -ge 2 ] ; then
+    circle_enable_logging info
+fi
+circle_cb_create initialize_copying
+circle_cb_process copy_piece
+circle_begin

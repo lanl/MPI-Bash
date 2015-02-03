@@ -1,0 +1,744 @@
+This file is mpi.def, from which is created mpi.c.
+It implements all of the "mpi_*" builtins in Bash.
+
+$PRODUCES mpi.c
+
+#include <config.h>
+
+#include <stdio.h>
+#if defined (HAVE_UNISTD_H)
+#  ifdef _MINIX
+#    include <sys/types.h>
+#  endif
+#  include <unistd.h>
+#endif
+
+#include "../bashintl.h"
+#include "../shell.h"
+#include "common.h"
+#include "bashgetopt.h"
+#include <mpi.h>
+
+extern int running_trap, trap_saved_exit_value;
+
+/* Keep track of who we are within MPI_COMM_WORLD. */
+static int mpi_rank;
+static int mpi_num_ranks;
+
+/* Try an MPI operation.  Return with an error message on failure. */
+#define MPI_TRY(STMT)                           \
+  do                                            \
+    {                                           \
+      int mpierr;                               \
+      mpierr = STMT;                            \
+      if (mpierr != MPI_SUCCESS)                \
+        return report_mpi_error (mpierr);       \
+    }                                           \
+  while (0)
+
+/* Return with a usage message if no arguments remain. */
+#define YES_ARGS(LIST)                          \
+  if ((LIST) == 0)                              \
+    {                                           \
+      builtin_usage ();                         \
+      return (EX_USAGE);                        \
+    }
+
+/* Return with an error message if a given variable is read-only or if
+ * we can't write to it for any other reason (e.g., it's defined as a
+ * function). */
+#define REQUIRE_WRITABLE(NAME)                                          \
+  do                                                                    \
+    {                                                                   \
+      SHELL_VAR *bindvar = find_shell_variable (NAME);                  \
+      if (bindvar)                                                      \
+        {                                                               \
+          if (readonly_p (bindvar))                                     \
+            {                                                           \
+              err_readonly (NAME);                                      \
+              return (EXECUTION_FAILURE);                               \
+            }                                                           \
+          if (unbind_variable (NAME) == -1)                             \
+            {                                                           \
+              builtin_error ("Failed to write to variable %s", NAME);   \
+              return (EXECUTION_FAILURE);                               \
+            }                                                           \
+        }                                                               \
+    }                                                                   \
+  while (0)
+
+/* Initialize MPI. */
+void
+initialize_mpi (argc, argv)
+     int argc;
+     char **argv;
+{
+  int init_done;
+
+  MPI_Initialized (&init_done);
+  if (!init_done)
+    MPI_Init (&argc, &argv);
+  MPI_Errhandler_set (MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+  MPI_Comm_rank (MPI_COMM_WORLD, &mpi_rank);
+  MPI_Comm_size (MPI_COMM_WORLD, &mpi_num_ranks);
+}
+
+/* Finalize MPI. */
+void
+finalize_mpi ()
+{
+  MPI_Finalize ();
+}
+
+/* Parse an operation name into an MPI_Op.  Return 1 on success, 0 on
+ * failure. */
+static int
+parse_operation (char *name, MPI_Op *op)
+{
+  /* Define a mapping from operator names to MPI_Op values. */
+  typedef struct {
+    char *name;        /* Operation name (e.g., "sum") */
+    MPI_Op value;      /* Operation value (e.g., MPI_SUM) */
+  } opname2value_t;
+  static opname2value_t oplist[] = {
+    {"max",    MPI_MAX},
+    {"min",    MPI_MIN},
+    {"sum",    MPI_SUM},
+    {"prod",   MPI_PROD},
+    {"land",   MPI_LAND},
+    {"band",   MPI_BAND},
+    {"lor",    MPI_LOR},
+    {"bor",    MPI_BOR},
+    {"lxor",   MPI_LXOR},
+    {"bxor",   MPI_BXOR},
+    {"maxloc", MPI_MAXLOC},
+    {"minloc", MPI_MINLOC}
+  };
+  size_t i;
+
+  for (i = 0; i < sizeof(oplist)/sizeof(opname2value_t); i++)
+    if (!strcmp(name, oplist[i].name))
+      {
+        *op = oplist[i].value;
+        if (i > 0)
+          {
+            /* As a performance optimization, bubble up the value we
+             * just found. */
+            opname2value_t prev = oplist[i - 1];
+            oplist[i - 1] = oplist[i];
+            oplist[i] = prev;
+          }
+        return 1;
+      }
+  return 0;
+}
+
+/* Report an error to the user and return EXECUTION_FAILURE. */
+static int
+report_mpi_error (mpierr)
+     int mpierr;
+{
+  char errstr[MPI_MAX_ERROR_STRING];
+  int errstrlen;
+
+  MPI_Error_string (mpierr, errstr, &errstrlen);
+  builtin_error ("%s", errstr);
+  return EXECUTION_FAILURE;
+}
+
+/* Perform the same operation as bind_variable, but with VALUE being a
+ * number, not a string. */
+static SHELL_VAR *
+bind_variable_number (name, value, flags)
+     const char *name;
+     long value;
+     int flags;
+{
+  char numstr[25];    /* String version of VALUE */
+
+  sprintf (numstr, "%ld", value);
+  return bind_variable (name, numstr, flags);
+}
+
+/* Perform the same operation as bind_array_variable, but with VALUE
+ * being a number, not a string. */
+static SHELL_VAR *
+bind_array_variable_number (name, ind, value, flags)
+     char *name;
+     arrayind_t ind;
+     long value;
+     int flags;
+{
+  char numstr[25];    /* String version of VALUE */
+
+  sprintf (numstr, "%ld", value);
+  return bind_array_variable (name, ind, numstr, flags);
+}
+
+/* Define a reduction-type function (allreduce, scan, exscan, etc.). */
+typedef int (*reduction_func_t)(void *, void *, int, MPI_Datatype, MPI_Op, MPI_Comm);
+
+/* Perform any reduction-type operation (allreduce, scan, exscan, etc.). */
+static int
+reduction_like (list, funcname, func)
+     WORD_LIST *list;
+     char *funcname;
+     reduction_func_t func;
+{
+  char *word;                   /* One argument */
+  struct {
+    long int value;             /* Reduced value */
+    int rank;                   /* Rank associated with the above */
+  } number, result;
+  MPI_Op operation = MPI_SUM;   /* Operation to perform */
+  char *varname;                /* Name of the variable to bind the results to */
+  intmax_t n;
+  int i;
+
+  /* Parse "-O OPERATION" (optional), where OPERATION is a reduction
+   * operation. */
+  YES_ARGS (list);
+  word = list->word->word;
+  if (ISOPTION (word, 'O'))
+    {
+      list = list->next;
+      if (list == 0)
+        {
+          sh_needarg (funcname);
+          return (EX_USAGE);
+        }
+      word = list->word->word;
+      if (!parse_operation (word, &operation))
+        {
+          sh_invalidopt ("-O");
+          return (EX_USAGE);
+        }
+      list = list->next;
+    }
+
+  /* Parse the argument, which must be a number. */
+  YES_ARGS (list);
+  word = list->word->word;
+  if (!legal_number (word, &n))
+    {
+      sh_neednumarg (funcname);
+      return (EX_USAGE);
+    }
+  number.value = (long int) n;
+  number.rank = mpi_rank;
+  list = list->next;
+
+  /* Parse the target variable, which must not be read-only. */
+  YES_ARGS (list);
+  varname = list->word->word;
+  if (mpi_rank != 0 || func != MPI_Exscan)
+    REQUIRE_WRITABLE (varname);
+  list = list->next;
+  no_args (list);
+
+  /* Perform the reduction operation.  Bind the given array variable
+   * to the result and, for minloc/maxloc, the associated rank. */
+  if (mpi_rank != 0 || func != MPI_Exscan) {
+    bind_array_variable (varname, 0, "", 0);
+    bind_array_variable (varname, 1, "", 0);
+  }
+  if (operation == MPI_MINLOC || operation == MPI_MAXLOC)
+    {
+      MPI_TRY (func (&number, &result, 1, MPI_LONG_INT, operation, MPI_COMM_WORLD));
+      if (mpi_rank != 0 || func != MPI_Exscan)
+	bind_array_variable_number (varname, 1, result.rank, 0);
+    }
+  else
+    MPI_TRY (func (&number.value, &result.value, 1, MPI_LONG, operation, MPI_COMM_WORLD));
+  if (mpi_rank != 0 || func != MPI_Exscan)
+    bind_array_variable_number (varname, 0, result.value, 0);
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN mpi_comm_rank
+$FUNCTION mpi_comm_rank_builtin
+$SHORT_DOC mpi_comm_rank name
+Return the process's rank in the MPI job.
+
+Arguments:
+  NAME          Scalar variable in which to receive the rank
+
+Exit Status:
+Returns 0 unless an invalid option is given.
+$END
+/*'*/
+
+/* Here is the mpi_comm_rank builtin. */
+int
+mpi_comm_rank_builtin (list)
+     WORD_LIST *list;
+{
+  char *varname;         /* Name of the variable to bind the results to */
+
+  YES_ARGS (list);
+  varname = list->word->word;
+  REQUIRE_WRITABLE (varname);
+  list = list->next;
+  no_args (list);
+  bind_variable_number (varname, mpi_rank, 0);
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN mpi_comm_size
+$FUNCTION mpi_comm_size_builtin
+$SHORT_DOC mpi_comm_size name
+Return the total number of ranks in the MPI job.
+
+Arguments:
+  NAME          Scalar variable in which to receive the number of ranks
+
+Exit Status:
+Returns 0 unless an invalid option is given.
+$END
+
+/* Here is the mpi_comm_size builtin. */
+int
+mpi_comm_size_builtin (list)
+     WORD_LIST *list;
+{
+  char *varname;         /* Name of the variable to bind the results to */
+
+  YES_ARGS (list);
+  varname = list->word->word;
+  REQUIRE_WRITABLE (varname);
+  list = list->next;
+  no_args (list);
+  bind_variable_number (varname, mpi_num_ranks, 0);
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN mpi_abort
+$FUNCTION mpi_abort_builtin
+$SHORT_DOC mpi_abort [n]
+Abort all processes in the MPI job and exit the shell.
+
+Exits not only the caller's shell (with a status of N) but also all
+remote shells that are part of the same MPI job.  If N is omitted, the
+exit status is that of the last command executed.
+
+This command should be used only in extreme circumstances.  It is
+better for each process to exit normally on its own.
+$END
+/*'*/
+
+/* Here is the mpi_abort builtin. */
+int
+mpi_abort_builtin (list)
+     WORD_LIST *list;
+{
+  int exit_value;
+
+  exit_value = (running_trap == 1 && list == 0) ? trap_saved_exit_value : get_exitstat (list);  /* Copied from exit.def */
+  MPI_TRY (MPI_Abort (MPI_COMM_WORLD, exit_value));
+  return EXECUTION_FAILURE;
+}
+
+$BUILTIN mpi_send
+$FUNCTION mpi_send_builtin
+$SHORT_DOC mpi_send [-t tag] rank message
+Send a message to a remote process in the same MPI job.
+
+Options:
+  -t TAG        Send the message using tag TAG (default: 0).  TAG must
+                be a nonnegative integer.
+
+Arguments:
+  RANK          Whom to send the message to.  RANK must be an integer in
+                the range [0, $(mpi_comm_size)-1].
+
+  MESSAGE       String to send to rank RANK.
+
+Exit Status:
+Returns 0 unless an invalid option is given or an error occurs.
+$END
+
+/* Here is the mpi_send builtin. */
+int
+mpi_send_builtin (list)
+     WORD_LIST *list;
+{
+  char *word;              /* One argument */
+  intmax_t target_rank;    /* MPI target rank */
+  char *message;           /* Message to send to rank target_rank */
+  intmax_t tag = 0;        /* Message tag to use */
+
+  /* Parse "-t TAG" (optional), where TAG is a number or "any". */
+  YES_ARGS (list);
+  word = list->word->word;
+  if (ISOPTION (word, 't'))
+    {
+      list = list->next;
+      if (list == 0)
+        {
+          sh_needarg ("mpi_send");
+          return (EX_USAGE);
+        }
+      word = list->word->word;
+      if (!legal_number (word, &tag))
+        {
+          sh_neednumarg ("-t");
+          return (EX_USAGE);
+        }
+      list = list->next;
+    }
+  else if (*word == '-')
+    {
+      sh_invalidopt (word);
+      builtin_usage ();
+      return (EX_USAGE);
+    }
+
+  /* Parse the target rank, which must be a number. */
+  YES_ARGS (list);
+  word = list->word->word;
+  if (!legal_number (word, &target_rank))
+    {
+      builtin_error (_("mpi_send: numeric rank required"));
+      return (EX_USAGE);
+    }
+  list = list->next;
+
+  /* Parse the message to send. */
+  YES_ARGS (list);
+  message = list->word->word;
+  list = list->next;
+  no_args (list);
+
+  /* Send the message. */
+  MPI_TRY (MPI_Send (message, strlen(message)+1, MPI_BYTE, (int)target_rank, (int)tag, MPI_COMM_WORLD));
+  return EXECUTION_SUCCESS;
+}
+
+
+$BUILTIN mpi_recv
+$FUNCTION mpi_recv_builtin
+$SHORT_DOC mpi_recv [-t tag] rank name
+Receive a message from a remote process in the same MPI job.
+
+Options:
+  -t TAG        Receive only messages sent using tag TAG (default: 0).
+                TAG must be either a nonnegative integer or the string
+                "any" to receive messages sent using any tag.
+
+Arguments:
+  RANK          Receive only messages sent from sender RANK.  RANK
+                must either be in the range [0, $(mpi_comm_size)-1] or
+                be the string "any" to receive messages from any sender.
+
+  NAME          Array variable in which to receive the message, sender
+                rank, and tag.
+
+Exit Status:
+Returns 0 unless an invalid option is given or an error occurs.
+$END
+
+/* Here is the mpi_recv builtin. */
+int
+mpi_recv_builtin (list)
+     WORD_LIST *list;
+{
+  char *word;            /* One argument */
+  intmax_t source_rank;  /* MPI source rank */
+  char *endptr;          /* Used for parsing strings into numbers */
+  MPI_Status status;     /* Status of an MPI operation */
+  int count;             /* Message length in bytes */
+  intmax_t tag = 0;      /* Message tag to use */
+  char *varname;         /* Name of the variable to bind the results to */
+  static char *message = NULL;  /* Message received from MPI */
+  static size_t alloced = 0;    /* Number of bytes allocated for the above */
+  int opt;               /* Parsed option */
+
+  /* Parse any options provided. */
+  reset_internal_getopt ();
+  while ((opt = internal_getopt (list, "t:")) != -1)
+    {
+      switch (opt)
+        {
+          case 't':
+            if (!strcmp (list_optarg, "any"))
+              tag = MPI_ANY_TAG;
+            else if (!legal_number (list_optarg, &tag))
+              {
+                builtin_error (_("-t: numeric argument or \"any\" required"));
+                return (EX_USAGE);
+              }
+            break;
+
+          default:
+            sh_invalidopt (word);
+            builtin_usage ();
+            return (EX_USAGE);
+        }
+    }
+  list = loptend;
+
+  /* Parse the source rank, which must be a number or "any". */
+  YES_ARGS (list);
+  word = list->word->word;
+  if (!legal_number (word, &source_rank))
+    {
+      if (!strcmp (word, "any"))
+        source_rank = MPI_ANY_SOURCE;
+      else
+        {
+          builtin_error (_("mpi_recv: numeric rank or \"any\" required"));
+          return (EX_USAGE);
+        }
+    }
+  list = list->next;
+
+  /* Parse the target variable, which must not be read-only. */
+  YES_ARGS (list);
+  varname = list->word->word;
+  REQUIRE_WRITABLE (varname);
+  list = list->next;
+  no_args (list);
+
+  /* Receive a message.  Because we don't know long the message will
+   * be, we first probe to get the length. */
+  MPI_TRY (MPI_Probe ((int)source_rank, (int)tag, MPI_COMM_WORLD, &status));
+  MPI_TRY (MPI_Get_count (&status, MPI_BYTE, &count));
+  if (alloced < count)
+    {
+      message = xrealloc (message, count);
+      alloced = count;
+    }
+  MPI_TRY (MPI_Recv (message, count, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status));
+  bind_array_variable (varname, 0, message, 0);
+  bind_array_variable_number (varname, 1, status.MPI_SOURCE, 0);
+  bind_array_variable_number (varname, 2, status.MPI_TAG, 0);
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN mpi_barrier
+$FUNCTION mpi_barrier_builtin
+$SHORT_DOC mpi_barrier
+Synchronizes all of the processes in the MPI job.
+
+No process will return from mpi_barrier until all processes have
+called mpi_barrier.
+
+Exit Status:
+Returns 0 unless an invalid option is given or an error occurs.
+$END
+
+/* Here is the mpi_barrier builtin. */
+int
+mpi_barrier_builtin (list)
+     WORD_LIST *list;
+{
+  no_args (list);
+  MPI_TRY (MPI_Barrier (MPI_COMM_WORLD));
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN mpi_bcast
+$FUNCTION mpi_bcast_builtin
+$SHORT_DOC mpi_bcast [message] name
+Broadcast a message to all processes in the same MPI job.
+
+Arguments:
+  MESSAGE       String to broadcast from one process to all the others.
+
+  NAME          Scalar variable in which to receive the broadcast message.
+
+Exactly one process in the MPI job must specify a message to
+broadcast.  No process will return from mpi_bcast until all processes
+have called mpi_bcast.
+
+Exit Status:
+Returns 0 unless an invalid option is given or an error occurs.
+$END
+
+/* Here is the mpi_bcast builtin. */
+int
+mpi_bcast_builtin (list)
+     WORD_LIST *list;
+{
+  char *word;            /* One argument */
+  int root;              /* MPI root rank */
+  char *root_message;    /* Message to broadcast */
+  int msglen;            /* Length in bytes of the above (including the NULL byte) */
+  char *varname;         /* Name of the variable to bind the results to */
+  static int *all_lengths = NULL;   /* List of every rank's msglen */
+  static char *message = NULL;      /* Message received from the root */
+  static int alloced = 0;           /* Bytes allocated for the above */
+  int i;
+
+  /* Parse the optional message and target variable, which must not be
+   * read-only. */
+  YES_ARGS (list);
+  if (list->next == NULL)
+    {
+      /* Non-root */
+      root_message = NULL;
+      msglen = -1;
+    }
+  else
+    {
+      /* Root */
+      root_message = list->word->word;
+      msglen = (int) strlen(root_message) + 1;
+      list = list->next;
+    }
+  varname = list->word->word;
+  REQUIRE_WRITABLE (varname);
+  list = list->next;
+  no_args (list);
+
+  /* Acquire global agreement on the root and the message size. */
+  if (all_lengths == NULL)
+    all_lengths = xmalloc (mpi_num_ranks*sizeof(int));
+  MPI_TRY (MPI_Allgather (&msglen, 1, MPI_INT, all_lengths, 1, MPI_INT, MPI_COMM_WORLD));
+  root = -1;
+  for (i = 0; i < mpi_num_ranks; i++)
+    {
+      if (all_lengths[i] == -1)
+        continue;
+      if (root != -1)
+        {
+          builtin_error (_("mpi_bcast: more than one process specified a message"));
+          return (EXECUTION_FAILURE);
+        }
+      root = i;
+      msglen = all_lengths[i];
+    }
+  if (root == -1)
+    {
+      builtin_error (_("mpi_bcast: no process specified a message"));
+      return (EXECUTION_FAILURE);
+    }
+
+  /* Broadcast the message. */
+  if (mpi_rank == root)
+    {
+      MPI_TRY (MPI_Bcast (root_message, msglen, MPI_BYTE, root, MPI_COMM_WORLD));
+      bind_variable (varname, root_message, 0);
+    }
+  else
+    {
+      if (alloced < msglen)
+        {
+          message = xrealloc (message, msglen);
+          alloced = msglen;
+        }
+      MPI_TRY (MPI_Bcast (message, msglen, MPI_BYTE, root, MPI_COMM_WORLD));
+      bind_variable (varname, message, 0);
+    }
+  return EXECUTION_SUCCESS;
+}
+
+$BUILTIN mpi_scan
+$FUNCTION mpi_scan_builtin
+$SHORT_DOC mpi_scan number name
+Perform an inclusive scan across all processes in the same MPI job.
+
+ -O OPERATION   Operation to perform.  Must be one of "max", "min",
+                "sum", "prod", "land", "band", "lor", "bor", "lxor",
+                "bxor", "maxloc", or "minloc" (default: "sum").
+
+Arguments:
+  NUMBER        Integer to use in the scan operation.
+
+  NAME          Array variable in which to receive the result and, in
+                the case of maxloc and minloc, the associated rank.
+
+In an inclusive-scan operation, each process i presents a number,
+a[i].  Once all processes in the MPI job have presented their number,
+the command returns a[0] to rank 0, a[0]+a[1] to rank 1,
+a[0]+a[1]+a[2] to rank 2, and so forth.  The -O option enables "+" to
+be replaced with other operations.
+
+Inclusive scans can be useful for assigning a unique index to each
+process in the MPI job.
+
+Exit Status:
+Returns 0 unless an invalid option is given or an error occurs.
+$END
+
+/* Here is the mpi_scan builtin. */
+int
+mpi_scan_builtin (list)
+     WORD_LIST *list;
+{
+  return reduction_like (list, "mpi_scan", MPI_Scan);
+}
+
+$BUILTIN mpi_exscan
+$FUNCTION mpi_exscan_builtin
+$SHORT_DOC mpi_exscan number name
+Perform an exclusive scan across all processes in the same MPI job.
+
+ -O OPERATION   Operation to perform.  Must be one of "max", "min",
+                "sum", "prod", "land", "band", "lor", "bor", "lxor",
+                "bxor", "maxloc", or "minloc" (default: "sum").
+
+Arguments:
+  NUMBER        Integer to use in the scan operation.
+
+  NAME          Array variable in which to receive the result and, in
+                the case of maxloc and minloc, the associated rank.
+
+In a exclusive-scan operation, each process i presents a number, a[i].
+Once all processes in the MPI job have presented their number, the
+command assigns a[0] to NAME on rank 1, a[0]+a[1] to NAME on rank 2,
+a[0]+a[1]+a[2] to NAME on rank 3, and so forth.  No assignment is
+performed on rank 0.  The -O option enables "+" to be replaced with
+other operations.
+
+Exclusive scans can be useful for assigning a unique index to each
+process in the MPI job.
+
+Exit Status:
+Returns 0 unless an invalid option is given or an error occurs.
+$END
+
+/* Here is the mpi_exscan builtin. */
+int
+mpi_exscan_builtin (list)
+     WORD_LIST *list;
+{
+  return reduction_like (list, "mpi_exscan", MPI_Exscan);
+}
+
+$BUILTIN mpi_allreduce
+$FUNCTION mpi_allreduce_builtin
+$SHORT_DOC mpi_allreduce number name
+Reduce numbers from all processes in an MPI job to a single number.
+
+Options:
+
+ -O OPERATION   Operation to perform.  Must be one of "max", "min",
+                "sum", "prod", "land", "band", "lor", "bor", "lxor",
+                "bxor", "maxloc", or "minloc" (default: "sum").
+
+Arguments:
+  NUMBER        Integer to use in the allreduce operation.
+
+  NAME          Array variable in which to receive the result and, in
+                the case of maxloc and minloc, the associated rank.
+
+In an all-reduce operation, each process i presents a number, a[i].
+Once all processes in the MPI job have presented their number, the
+command returns a[0]+a[1]+...+a[n-1] to all ranks.  The -O option
+enables "+" to be replaced with other operations.
+
+All-reduces can be useful for reaching global agreement (e.g., of a
+termination condition).
+
+Exit Status:
+Returns 0 unless an invalid option is given or an error occurs.
+$END
+
+/* Here is the mpi_allreduce builtin. */
+int
+mpi_allreduce_builtin (list)
+     WORD_LIST *list;
+{
+  return reduction_like (list, "mpi_allreduce", MPI_Allreduce);
+}

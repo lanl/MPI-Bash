@@ -1,0 +1,128 @@
+#! /usr/bin/env mpibash
+
+######################################################
+# Quickly compress a large file using mpibash and xz #
+# By Scott Pakin <pakin@lanl.gov>                    #
+######################################################
+
+# Define the maximum number of bytes to read/write at once.  This
+# should be large enough to get good performance from a parallel
+# filesystem but not so large that it thrashes the TLB.
+maxblocksize=104857600
+
+# Cache MPI parameters.
+mpi_comm_rank rank
+mpi_comm_size nranks
+
+# Parse the command line.  We accept only a few, specific, xz options.
+# The rest don't make sense in the context of this script.
+usagestr="Usage: $0 [xz options] <file>..."
+keep=no
+force=no
+suffix=.xz
+declare -a xzopts
+while getopts kfS:C:0123456789eM:qvQ optname ; do
+    case $optname in
+        \?)
+            exit 1
+            ;;
+        k)
+            keep=yes
+            ;;
+        f)
+            force=yes
+            ;;
+        S)
+            suffix="$OPTARG"
+            ;;
+        *)
+            xzopts+=(-$optname)
+            if [ "$OPTARG" ] ; then
+                xzopts+=("$OPTARG")
+            fi
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+if [ $# -eq 0 ] ; then
+    echo $usagestr 1>&2
+    exit 1
+fi
+
+# Iterate over each input file in turn.
+while [ $# -ge 1 ] ; do
+    # Ensure that each input file exists and is a regular, readable file.
+    # Ensure that each output file does not exist (unless -f was specified).
+    origfile="$1"
+    compfile="${origfile}${suffix}"
+    shift
+    if [ $rank -eq 0 ] ; then
+        # Rank 0 -- tell everyone the file size or "skip" to skip this file.
+        file_ok=yes
+        if [ ! -e "$origfile" ] ; then
+            echo "${0}: Input file $origfile does not exist" 1>&2
+            file_ok=no
+        elif [ ! -f "$origfile" ] ; then
+            echo "${0}: Input file $origfile is not a regular file" 1>&2
+            file_ok=no
+        elif [ ! -r "$origfile" ] ; then
+            echo "${0}: Input file $origfile is not readble" 1>&2
+            file_ok=no
+        elif [ -e "$compfile" -a "$force" = no ] ; then
+            echo "${0}: Output file $compfile already exists" 1>&2
+            file_ok=no
+        fi
+        if [ "$file_ok" = yes ] ; then
+            origsize=$(stat -c%s "$origfile")
+            mpi_bcast $origsize msg
+        else
+            mpi_bcast skip msg
+            continue
+        fi
+    else
+        # Not rank 0 -- await a filesize or "skip" to skip to the next file.
+        mpi_bcast origsize
+        if [ $origsize = skip ] ; then
+            continue
+        fi
+    fi
+
+    # Split the input file into nranks pieces.
+    let lastrank=($nranks - 1)
+    let blocksize=($origsize / $nranks)
+    let rank_offset=($rank * $blocksize)
+    rankfile="${origfile}.${rank}"
+    if [ $rank -eq $lastrank ] ; then
+        # The last rank copies exactly to the end of the file, making
+        # up for any "lost" bytes caused by rounding down blocksize to
+        # the nearest integer.
+        dd status=none iflag=skip_bytes skip=$rank_offset bs=$blocksize if="$origfile" of="$rankfile"
+    else
+        # All other ranks copy a single block.
+        dd status=none iflag=skip_bytes,count_bytes skip=$rank_offset bs=$blocksize count=$blocksize if="$origfile" of="$rankfile"
+    fi
+
+    # Compress each piece.
+    xz -f "${xzopts[@]}" "$rankfile"
+
+    # Concatenate the compressed pieces.
+    compfile="${origfile}${suffix}"
+    rankcompfile="$rankfile.xz"
+    rankcompsize=$(stat -c%s "$rankcompfile")
+    mpi_exscan $rankcompsize rank_offset
+    if [ $rank -eq 0 ] ; then
+        rank_offset=0
+        rm -f "$compfile"
+    fi
+    mpi_barrier
+    dd status=none conv=notrunc iflag=count_bytes oflag=seek_bytes seek=$rank_offset bs=$blocksize count=$rankcompsize if="$rankcompfile" of="$compfile"
+
+    # Delete all of the per-rank compressed files.
+    rm -f "$rankcompfile"
+
+    # Delete the original file.
+    mpi_barrier
+    if [ "$keep" = no -a $rank -eq 0 ] ; then
+        rm -f "$origfile"
+    fi
+done
