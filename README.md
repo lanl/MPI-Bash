@@ -19,9 +19,9 @@ Installation
 
 3. Build Bash as normal:
 
-    ./configure
-    make
-    make install
+        ./configure
+        make
+        make install
 
 Usage
 -----
