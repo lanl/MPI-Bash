@@ -90,6 +90,31 @@ if test "x$ax_cv_link_mpi" != xyes ; then
   AC_MSG_ERROR([Cannot continue without MPI.  Consider specifying CC=mpicc.])
 fi
 
+# Ensure that the C compiler supports __attribute__((constructor)).
+AC_CACHE_CHECK([if $CC supports __attribute__((constructor))],
+  [ax_cv_prog_cc_attr_cons],
+  [AC_COMPILE_IFELSE(
+    [AC_LANG_SOURCE([[
+#include <stdio.h>
+
+__attribute__((constructor))
+static void hello (void)
+{
+  fprintf(stderr, "Hello, world!\n");
+}
+
+__attribute__((destructor))
+static void goodbye (void)
+{
+  fprintf(stderr, "Goodbye, world!\n");
+}
+    ]])],
+    [ax_cv_prog_cc_attr_cons=yes],
+    [ax_cv_prog_cc_attr_cons=no])])
+if test "x$ax_cv_prog_cc_attr_cons" != xyes ; then
+  AC_MSG_ERROR([Cannot continue without compiler support for constructor functions])
+fi
+
 # We require the dladdr Glibc extension to help a .so file query itself.
 AC_SEARCH_LIBS([dladdr], [dl], , [
   AC_MSG_ERROR([Cannot continue without the dladdr Glibc extension.])])
