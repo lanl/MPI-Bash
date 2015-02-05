@@ -5,16 +5,18 @@
  * By Scott Pakin <pakin@lanl.gov>                  *
  ****************************************************/
 
-#include "builtins.h"
-#include "shell.h"
-#include "common.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <dlfcn.h>
-#include <mpi.h>
+#include "mpibash.h"
 
 static int we_called_init = 0;  /* 1=we called MPI_Init(); 0=it was called for us */
+static char *all_mpibash_builtins[] = {  /* All builtins we define except mpi_init */
+  "mpi_comm_rank",
+  "mpi_finalize",
+  NULL
+};
+
+/* Keep track of who we are within MPI_COMM_WORLD. */
+int mpibash_rank;
+int mpibash_num_ranks;
 
 /* Load another builtin from our plugin by invoking "enable -f
  * mpibash.so <name>". */
@@ -65,6 +67,7 @@ int
 mpi_init_builtin (WORD_LIST *list)
 {
   int inited;
+  char **func;
 
   /* Initialize MPI. */
   no_args(list);
@@ -81,9 +84,16 @@ mpi_init_builtin (WORD_LIST *list)
     we_called_init = 1;
   }
 
+  /* Make MPI errors return instead of crash.  Also, store our rank
+   * and number of ranks. */
+  MPI_Errhandler_set (MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+  MPI_Comm_rank (MPI_COMM_WORLD, &mpibash_rank);
+  MPI_Comm_size (MPI_COMM_WORLD, &mpibash_num_ranks);
+
   /* As a convenience for the user, load all of the other MPI-Bash builtins. */
-  if (load_mpi_builtin("mpi_finalize") != EXECUTION_SUCCESS)
-    return EXECUTION_FAILURE;
+  for (func = all_mpibash_builtins; *func; func++)
+    if (load_mpi_builtin(*func) != EXECUTION_SUCCESS)
+      return EXECUTION_FAILURE;
 
   return EXECUTION_SUCCESS;
 }
@@ -97,7 +107,7 @@ char *mpi_init_doc[] = {
   "Exit Status:",
   "Returns success if MPI successfully initialized and all MPI-Bash",
   "builtins were loaded into the shell.",
-  (char *)NULL
+  NULL
 };
 
 /* Describe the mpi_init builtin. */
@@ -117,7 +127,8 @@ mpi_finalize_builtin (WORD_LIST *list)
 {
   no_args(list);
   if (we_called_init)
-    MPI_Finalize();
+    if (MPI_Finalize() != MPI_SUCCESS)
+      return EXECUTION_FAILURE;
   return EXECUTION_SUCCESS;
 }
 
@@ -131,7 +142,7 @@ char *mpi_finalize_doc[] = {
   "Always succeeds.  However, the MPI standard does not define what",
   "happens after MPI_Finalize() is called.  Consequently, the shell or",
   "shell script should exit immediately after mpi_finalize returns.",
-  (char *)NULL
+  NULL
 };
 
 /* Describe the mpi_finalize builtin. */
@@ -142,4 +153,41 @@ struct builtin mpi_finalize_struct = {
   mpi_finalize_doc,              /* Builtin documentation */
   "mpi_finalize",                /* Usage synopsis */
   0                              /* Reserved */
+};
+
+/* Return the caller's MPI rank. */
+int
+mpi_comm_rank_builtin (WORD_LIST *list)
+{
+  char *varname;         /* Name of the variable to bind the results to */
+
+  YES_ARGS(list);
+  varname = list->word->word;
+  REQUIRE_WRITABLE(varname);
+  list = list->next;
+  no_args(list);
+  mpibash_bind_variable_number(varname, mpibash_rank, 0);
+  return EXECUTION_SUCCESS;
+}
+
+/* Define the documentation for the mpi_comm_rank builtin. */
+char *mpi_comm_rank_doc[] = {
+  "Return the process's rank in the MPI job.",
+  "",
+  "Arguments:",
+  "  NAME          Scalar variable in which to receive the rank",
+  "",
+  "Exit Status:",
+  "Returns 0 unless an invalid option is given.",
+  NULL
+};
+
+/* Describe the mpi_comm_rank builtin. */
+struct builtin mpi_comm_rank_struct = {
+  "mpi_comm_rank",                /* Builtin name */
+  mpi_comm_rank_builtin,          /* Function implementing the builtin */
+  BUILTIN_ENABLED,                /* Initial flags for builtin */
+  mpi_comm_rank_doc,              /* Builtin documentation */
+  "mpi_comm_rank",                /* Usage synopsis */
+  0                               /* Reserved */
 };

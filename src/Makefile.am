@@ -7,7 +7,7 @@
 plugindir = $(libexecdir)/mpibash
 plugin_LTLIBRARIES = mpibash.la preload-mpi.la
 
-mpibash_la_SOURCES = init.c
+mpibash_la_SOURCES = mpibash.h init.c util.c
 mpibash_la_CPPFLAGS = $(BASH_CPPFLAGS)
 mpibash_la_LDFLAGS = -no-undefined -module -avoid-version
 
