@@ -6,6 +6,9 @@
 #####################################
 
 niters=1000000
+
+enable -f $MPIBASH_PLUGIN mpi_init
+mpi_init
 mpi_comm_rank rank
 
 mpi_barrier
@@ -27,3 +30,5 @@ else
 	let iter++
     done
 fi
+
+mpi_finalize

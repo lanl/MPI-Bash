@@ -72,7 +72,7 @@ static int load_mpi_builtin (char *name)
 
 /* Initialize MPI with MPI_Init().  This has never worked for me with
  * Open MPI so we provide a hack in which the user can set
- * LD_PRELOAD=preload-mpi.so in advance of running bash. */
+ * LD_PRELOAD=mpibash.so in advance of running bash. */
 static int
 mpi_init_builtin (WORD_LIST *list)
 {
