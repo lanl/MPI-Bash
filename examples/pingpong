@@ -1,9 +1,9 @@
 #! /usr/bin/env mpibash
 
-#####################################
-# Measure mpibash ping-pong latency #
-# By Scott Pakin <pakin@lanl.gov>   #
-#####################################
+######################################
+# Measure MPI-Bash ping-pong latency #
+# By Scott Pakin <pakin@lanl.gov>    #
+######################################
 
 niters=1000000
 
