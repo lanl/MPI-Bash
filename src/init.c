@@ -8,10 +8,12 @@
 
 static int we_called_init = 0;  /* 1=we called MPI_Init(); 0=it was called for us */
 static char *all_mpibash_builtins[] = {  /* All builtins MPI-Bash defines except mpi_init */
+  "mpi_abort",
   "mpi_comm_rank",
   "mpi_comm_size",
   "mpi_finalize",
-  "mpi_abort",
+  "mpi_recv",
+  "mpi_send",
   NULL
 };
 
@@ -35,7 +37,7 @@ static int load_mpi_builtin (char *name)
     Dl_info self_info;
 
     if (dladdr(load_mpi_builtin, &self_info) == 0 || self_info.dli_fname == NULL) {
-      fprintf(stderr, "mpi_init: failed to find the MPI-Bash .so file\n");
+      fprintf(stderr, _("mpi_init: failed to find the MPI-Bash .so file\n"));
       return EXECUTION_FAILURE;
     }
     mpibash_so = strdup(self_info.dli_fname);
@@ -44,7 +46,7 @@ static int load_mpi_builtin (char *name)
   /* Find bash's enable function, even if it's disabled. */
   enable_func = builtin_address("enable");
   if (enable_func == NULL) {
-    fprintf(stderr, "mpi_init: failed to find the enable builtin\n");
+    fprintf(stderr, _("mpi_init: failed to find the enable builtin\n"));
     return EXECUTION_FAILURE;
   }
 
@@ -55,7 +57,7 @@ static int load_mpi_builtin (char *name)
   enable_args[3] = NULL;
   enable_list = strvec_to_word_list(enable_args, 1, 0);
   if (enable_func(enable_list) == EXECUTION_FAILURE) {
-    fprintf(stderr, "mpi_init: failed to load builtin %s from %s\n", name, mpibash_so);
+    fprintf(stderr, _("mpi_init: failed to load builtin %s from %s\n"), name, mpibash_so);
     dispose_words(enable_list);
     return EXECUTION_FAILURE;
   }

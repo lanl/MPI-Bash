@@ -24,6 +24,7 @@ src/Makefile.in
 src/libmpibash.la
 src/mpibash.la
 src/mpibash_la-init.lo
+src/mpibash_la-pt2pt.lo
 src/mpibash_la-util.lo
 src/preload-mpi.la
 src/preload_mpi_la-preload-mpi.lo
