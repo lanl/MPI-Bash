@@ -1,22 +1,25 @@
-/****************************************************
- * Top-level dynamically loadable bash builtin that *
- * dynamically loads all other MPI-Bash builtins    *
- *                                                  *
- * By Scott Pakin <pakin@lanl.gov>                  *
- ****************************************************/
+/******************************************************
+ * MPI-Bash initialization and finalization functions *
+ *                                                    *
+ * By Scott Pakin <pakin@lanl.gov>                    *
+ ******************************************************/
 
 #include "mpibash.h"
 
 static int we_called_init = 0;  /* 1=we called MPI_Init(); 0=it was called for us */
-static char *all_mpibash_builtins[] = {  /* All builtins we define except mpi_init */
+static char *all_mpibash_builtins[] = {  /* All builtins MPI-Bash defines except mpi_init */
   "mpi_comm_rank",
+  "mpi_comm_size",
   "mpi_finalize",
+  "mpi_abort",
   NULL
 };
 
 /* Keep track of who we are within MPI_COMM_WORLD. */
 int mpibash_rank;
 int mpibash_num_ranks;
+
+extern int running_trap, trap_saved_exit_value;
 
 /* Load another builtin from our plugin by invoking "enable -f
  * mpibash.so <name>". */
@@ -170,3 +173,60 @@ static char *mpi_comm_rank_doc[] = {
 
 /* Describe the mpi_comm_rank builtin. */
 DEFINE_BUILTIN(mpi_comm_rank, "mpi_comm_rank name");
+
+/* Return the number of MPI ranks available. */
+int
+mpi_comm_size_builtin (WORD_LIST *list)
+{
+  char *varname;         /* Name of the variable to bind the results to */
+
+  YES_ARGS (list);
+  varname = list->word->word;
+  REQUIRE_WRITABLE(varname);
+  list = list->next;
+  no_args(list);
+  mpibash_bind_variable_number(varname, mpibash_num_ranks, 0);
+  return EXECUTION_SUCCESS;
+}
+
+/* Define the documentation for the mpi_comm_size builtin. */
+static char *mpi_comm_size_doc[] = {
+  "Return the total number of ranks in the MPI job.",
+  "",
+  "Arguments:",
+  "  NAME          Scalar variable in which to receive the number of ranks",
+  "",
+  "Exit Status:",
+  "Returns 0 unless an invalid option is given.",
+  NULL
+};
+
+/* Describe the mpi_comm_size builtin. */
+DEFINE_BUILTIN(mpi_comm_size, "mpi_comm_size name");
+
+/* Abort the program, typically bringing down all ranks. */
+int
+mpi_abort_builtin (WORD_LIST *list)
+{
+  int exit_value;
+
+  exit_value = (running_trap == 1 && list == 0) ? trap_saved_exit_value : get_exitstat(list);  /* Copied from exit.def */
+  MPI_TRY(MPI_Abort(MPI_COMM_WORLD, exit_value));
+  return EXECUTION_FAILURE;
+}
+
+/* Define the documentation for the mpi_abort builtin. */
+static char *mpi_abort_doc[] = {
+  "Abort all processes in the MPI job and exit the shell.",
+  "",
+  "Exits not only the caller's shell (with a status of N) but also all",
+  "remote shells that are part of the same MPI job.  If N is omitted, the",
+  "exit status is that of the last command executed.",
+  "",
+  "This command should be used only in extreme circumstances.  It is",
+  "better for each process to exit normally on its own.",
+  NULL
+};
+
+/* Describe the mpi_abort builtin. */
+DEFINE_BUILTIN(mpi_abort, "mpi_abort [n]");
