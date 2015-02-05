@@ -16,6 +16,7 @@ install-sh
 libtool
 ltmain.sh
 missing
+mpibash
 mpibash-*.tar.gz
 src/.deps/
 src/.libs/

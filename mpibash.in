@@ -1,0 +1,14 @@
+#! /usr/bin/env bash
+
+###################################
+# MPI-Bash convenience wrappper   #
+# By Scott Pakin <pakin@lanl.gov> #
+###################################
+
+export prefix="@prefix@"
+export exec_prefix="@exec_prefix@"
+export mpibashdir="@plugindir@"
+export MPIBASH_PLUGIN="$mpibashdir/mpibash.so"
+export LD_PRELOAD="$mpibashdir/preload-mpi.so"
+export -n prefix exec_prefix mpibashdir
+exec bash "$@"

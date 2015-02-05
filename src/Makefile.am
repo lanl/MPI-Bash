@@ -4,7 +4,6 @@
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
-plugindir = $(libexecdir)/mpibash
 plugin_LTLIBRARIES = mpibash.la preload-mpi.la
 
 mpibash_la_SOURCES = \

@@ -119,6 +119,9 @@ fi
 AC_SEARCH_LIBS([dladdr], [dl], , [
   AC_MSG_ERROR([Cannot continue without the dladdr Glibc extension.])])
 
-# Generate a Makefile.
-AC_CONFIG_FILES([Makefile src/Makefile])
+# Tell the Makefiles where plugins should be installed.
+AC_SUBST([plugindir], [$libexecdir/$PACKAGE_NAME])
+
+# Generate Makefiles and other files.
+AC_CONFIG_FILES([Makefile src/Makefile mpibash])
 AC_OUTPUT
