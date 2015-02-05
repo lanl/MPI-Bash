@@ -63,7 +63,7 @@ static int load_mpi_builtin (char *name)
 /* Initialize MPI with MPI_Init().  This has never worked for me with
  * Open MPI so we provide a hack in which the user can set
  * LD_PRELOAD=preload-mpi.so in advance of running bash. */
-int
+static int
 mpi_init_builtin (WORD_LIST *list)
 {
   int inited;
@@ -99,7 +99,7 @@ mpi_init_builtin (WORD_LIST *list)
 }
 
 /* Define the documentation for the mpi_init builtin. */
-char *mpi_init_doc[] = {
+static char *mpi_init_doc[] = {
   "Initialize MPI and MPI-Bash.",
   "",
   "Invoke MPI_Init() then load all of the other MPI-Bash builtins.",
@@ -111,18 +111,11 @@ char *mpi_init_doc[] = {
 };
 
 /* Describe the mpi_init builtin. */
-struct builtin mpi_init_struct = {
-  "mpi_init",                /* Builtin name */
-  mpi_init_builtin,          /* Function implementing the builtin */
-  BUILTIN_ENABLED,           /* Initial flags for builtin */
-  mpi_init_doc,              /* Builtin documentation */
-  "mpi_init",                /* Usage synopsis */
-  0                          /* Reserved */
-};
+DEFINE_BUILTIN(mpi_init, "mpi_init");
 
 /* Finalize MPI with MPI_Finalize(), but only if we previously invoked
  * MPI_Init() explicitly. */
-int
+static int
 mpi_finalize_builtin (WORD_LIST *list)
 {
   no_args(list);
@@ -133,7 +126,7 @@ mpi_finalize_builtin (WORD_LIST *list)
 }
 
 /* Define the documentation for the mpi_finalize builtin. */
-char *mpi_finalize_doc[] = {
+static char *mpi_finalize_doc[] = {
   "Finalize MPI and MPI-Bash.",
   "",
   "Invoke MPI_Finalize().",
@@ -146,17 +139,10 @@ char *mpi_finalize_doc[] = {
 };
 
 /* Describe the mpi_finalize builtin. */
-struct builtin mpi_finalize_struct = {
-  "mpi_finalize",                /* Builtin name */
-  mpi_finalize_builtin,          /* Function implementing the builtin */
-  BUILTIN_ENABLED,               /* Initial flags for builtin */
-  mpi_finalize_doc,              /* Builtin documentation */
-  "mpi_finalize",                /* Usage synopsis */
-  0                              /* Reserved */
-};
+DEFINE_BUILTIN(mpi_finalize, "mpi_finalize");
 
 /* Return the caller's MPI rank. */
-int
+static int
 mpi_comm_rank_builtin (WORD_LIST *list)
 {
   char *varname;         /* Name of the variable to bind the results to */
@@ -171,7 +157,7 @@ mpi_comm_rank_builtin (WORD_LIST *list)
 }
 
 /* Define the documentation for the mpi_comm_rank builtin. */
-char *mpi_comm_rank_doc[] = {
+static char *mpi_comm_rank_doc[] = {
   "Return the process's rank in the MPI job.",
   "",
   "Arguments:",
@@ -183,11 +169,4 @@ char *mpi_comm_rank_doc[] = {
 };
 
 /* Describe the mpi_comm_rank builtin. */
-struct builtin mpi_comm_rank_struct = {
-  "mpi_comm_rank",                /* Builtin name */
-  mpi_comm_rank_builtin,          /* Function implementing the builtin */
-  BUILTIN_ENABLED,                /* Initial flags for builtin */
-  mpi_comm_rank_doc,              /* Builtin documentation */
-  "mpi_comm_rank",                /* Usage synopsis */
-  0                               /* Reserved */
-};
+DEFINE_BUILTIN(mpi_comm_rank, "mpi_comm_rank name");

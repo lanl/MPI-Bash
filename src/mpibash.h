@@ -1,6 +1,6 @@
 /****************************************
  * Definitions used throughout MPI-Bash *
- *				        *
+ *                                      *
  * By Scott Pakin <pakin@lanl.gov>      *
  ****************************************/
 
@@ -60,5 +60,16 @@ extern int mpibash_num_ranks;
         }                                                               \
     }                                                                   \
   while (0)
+
+/* Simplify defining an MPI-Bash builtin. */
+#define DEFINE_BUILTIN(NAME, SYNOPSIS)                          \
+  struct builtin NAME##_struct = {                              \
+    #NAME,             /* Builtin name */                       \
+    NAME##_builtin,    /* Function implementing the builtin */  \
+    BUILTIN_ENABLED,   /* Initial flags for builtin */          \
+    NAME##_doc,        /* Builtin documentation */              \
+    SYNOPSIS,          /* Usage synopsis */                     \
+    0                  /* Reserved */                           \
+  }
 
 #endif
