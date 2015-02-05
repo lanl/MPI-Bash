@@ -28,5 +28,3 @@ src/mpibash_la-coll.lo
 src/mpibash_la-init.lo
 src/mpibash_la-pt2pt.lo
 src/mpibash_la-util.lo
-src/preload-mpi.la
-src/preload_mpi_la-preload-mpi.lo
