@@ -9,12 +9,15 @@
 static int we_called_init = 0;  /* 1=we called MPI_Init(); 0=it was called for us */
 static char *all_mpibash_builtins[] = {  /* All builtins MPI-Bash defines except mpi_init */
   "mpi_abort",
+  "mpi_allreduce",
   "mpi_barrier",
   "mpi_bcast",
   "mpi_comm_rank",
   "mpi_comm_size",
+  "mpi_exscan",
   "mpi_finalize",
   "mpi_recv",
+  "mpi_scan",
   "mpi_send",
   NULL
 };
