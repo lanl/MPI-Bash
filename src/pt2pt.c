@@ -7,7 +7,7 @@
 #include "mpibash.h"
 
 /* Send a message to another MPI rank. */
-int
+static int
 mpi_send_builtin (WORD_LIST * list)
 {
   char *word;                   /* One argument */
@@ -81,8 +81,8 @@ static char *mpi_send_doc[] = {
 DEFINE_BUILTIN(mpi_send, "mpi_send [-t tag] rank message");
 
 /* Receive a message from another MPI rank. */
-int
-mpi_recv_builtin(WORD_LIST *list)
+static int
+mpi_recv_builtin (WORD_LIST *list)
 {
   char *word;                   /* One argument */
   intmax_t source_rank;         /* MPI source rank */
