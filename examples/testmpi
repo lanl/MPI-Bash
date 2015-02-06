@@ -5,11 +5,14 @@
 # By Scott Pakin <pakin@lanl.gov>   #
 #####################################
 
-# Define a function for output from rank 0 only.
-function rank0echo () {
+# Announce the next test to be performed.
+function announce_test () {
     if [ $rank -eq 0 ] ; then
+	sleep 1    # Give stdout a chance to drain.
+	echo ""
 	echo "$@"
     fi
+    mpi_barrier
 }
 
 # Initialization
@@ -17,7 +20,7 @@ enable -f $MPIBASH_PLUGIN mpi_init
 mpi_init
 mpi_comm_rank rank
 mpi_comm_size nranks
-rank0echo "Testing mpi_comm_size and mpi_comm_rank:"
+announce_test "Testing mpi_comm_size, mpi_comm_rank, and mpi_barrier:"
 echo "    Rank $rank says hello to its $((nranks - 1)) buddies."
 if [ $nranks -eq 1 ] ; then
     echo "There's not much to do with only one rank.  Please re-run with more."
@@ -26,13 +29,8 @@ if [ $nranks -eq 1 ] ; then
 fi
 rank1=$((rank + 1))
 
-# Barrier
-rank0echo "Testing mpi_barrier:"
-mpi_barrier
-echo "    Rank $rank successfully passed through the barrier."
-
 # Send and receive
-rank0echo "Testing mpi_send and mpi_recv:"
+announce_test "Testing mpi_send and mpi_recv:"
 if [ $rank -eq 0 ] ; then
     # Rank 0 receives a message from each rank in turn.
     for (( peer=1; peer<$nranks; peer++ )); do
@@ -45,7 +43,7 @@ else
 fi
 
 # Broadcast
-rank0echo "Testing mpi_bcast:"
+announce_test "Testing mpi_bcast:"
 if [ $rank -eq 0 ] ; then
     mpi_bcast "No, rank 0 rocks!" msg
 else
@@ -54,21 +52,21 @@ fi
 echo "    Rank $rank received the broadcast \"$msg\" from rank 0."
 
 # Scan
-rank0echo "Testing mpi_scan:"
+announce_test "Testing mpi_scan:"
 mpi_scan $rank1 sum
-echo "  The numbers [1, $rank1] (note closed interval) add up to $sum."
+echo "    The numbers [1, $rank1] (note closed interval) add up to $sum."
 
-# Exclusic scan
-rank0echo "Testing mpi_exscan:"
+# Exclusive scan
+announce_test "Testing mpi_exscan:"
 mpi_exscan $rank1 sum
-echo "  The numbers [1, $rank1) (note half-open interval) add up to $sum."
+echo "    The numbers [1, $rank1) (note half-open interval) add up to $sum."
 
 # All-reduce
-rank0echo "Testing mpi_allreduce:"
+announce_test "Testing mpi_allreduce:"
 mpi_allreduce $rank1 sum
-echo "  All ranks agree that the numbers [1, $nranks] (note closed interval) add up to $sum."
+echo "    All ranks agree that the numbers [1, $nranks] (note closed interval) add up to $sum."
 
 # Finalize
-rank0echo "Testing mpi_finalize:"
+announce_test "Testing mpi_finalize:"
 mpi_finalize
 echo "    Goodbye from rank $rank."

@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include <dlfcn.h>
 #include <mpi.h>
 
