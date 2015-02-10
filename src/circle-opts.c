@@ -4,8 +4,7 @@
  * By Scott Pakin <pakin@lanl.gov>      *
  ****************************************/
 
-#include "mpibash.h"
-#include <libcircle.h>
+#include "circlebash.h"
 
 /* Set Libcircle options. */
 int

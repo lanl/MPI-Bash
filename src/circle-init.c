@@ -4,52 +4,59 @@
  * By Scott Pakin <pakin@lanl.gov>                       *
  *********************************************************/
 
-#include "mpibash.h"
-#include <libcircle.h>
+#include "circlebash.h"
 
-static SHELL_VAR *create_func = NULL;   /* User-defined callback function for CIRCLE_cb_create. */
-static CIRCLE_handle *current_handle = NULL;    /* Active handle within a callback or NULL if not within a callback */
-static SHELL_VAR *process_func = NULL;  /* User-defined callback function for CIRCLE_cb_process. */
+/* Define our library-local variables in an ad hoc namespace. */
+SHELL_VAR *circlebash_create_func = NULL;   /* User-defined callback function for CIRCLE_cb_create. */
+SHELL_VAR *circlebash_process_func = NULL;  /* User-defined callback function for CIRCLE_cb_process. */
+CIRCLE_handle *circlebash_current_handle = NULL;    /* Active handle within a callback or NULL if not within a callback */
+
+/* Define all of our file-local variables as static. */
 static SHELL_VAR *reduce_init_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_init. */
 static SHELL_VAR *reduce_op_func = NULL;   /* User-defined callback function for CIRCLE_cb_reduce_op. */
 static SHELL_VAR *reduce_fini_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_fini. */
 static int within_reduction = 0;           /* 1=within a reduction callback; 0=not */
 static char *all_circle_builtins[] = {  /* All builtins that Circle-Bash defines except circle_init */
   "circle_abort",
+  "circle_begin",
+  "circle_cb_create",
+  "circle_cb_process",
+  "circle_dequeue",
   "circle_enable_logging",
+  "circle_enqueue",
   "circle_finalize",
   "circle_set_options",
   NULL
 };
 
-/* Invoke the user-defined creation-callback function (create_func). */
+/* Invoke the user-defined creation-callback function (circlebash_create_func). */
 static void
 internal_create_func (CIRCLE_handle * handle)
 {
   WORD_LIST *funcargs;
 
-  if (create_func == NULL)
+  if (circlebash_create_func == NULL)
     return;
-  current_handle = handle;
+  circlebash_current_handle = handle;
   funcargs = make_word_list(make_word("cb_create"), NULL);
-  execute_shell_function(create_func, funcargs);
+  execute_shell_function(circlebash_create_func, funcargs);
   dispose_words(funcargs);
-  current_handle = NULL;
+  circlebash_current_handle = NULL;
 }
 
-/* Invoke the user-defined process-callback function (process_func). */
+/* Invoke the user-defined process-callback function (circlebash_process_func). */
 static void
 internal_process_func (CIRCLE_handle * handle)
 {
   WORD_LIST *funcargs;
 
-  if (process_func == NULL)
+  if (circlebash_process_func == NULL)
     return;
-  current_handle = handle;
+  circlebash_current_handle = handle;
   funcargs = make_word_list(make_word("cb_process"), NULL);
-  execute_shell_function(process_func, funcargs);
+  execute_shell_function(circlebash_process_func, funcargs);
   dispose_words(funcargs);
-  current_handle = NULL;
+  circlebash_current_handle = NULL;
 }
 
 /* Invoke the user-defined reduction-initiation callback function
