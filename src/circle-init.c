@@ -15,7 +15,10 @@ static SHELL_VAR *reduce_op_func = NULL;   /* User-defined callback function for
 static SHELL_VAR *reduce_fini_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_fini. */
 static int within_reduction = 0;           /* 1=within a reduction callback; 0=not */
 static char *all_circle_builtins[] = {  /* All builtins that Circle-Bash defines except circle_init */
+  "circle_abort",
+  "circle_enable_logging",
   "circle_finalize",
+  "circle_set_options",
   NULL
 };
 
@@ -195,3 +198,24 @@ static char *circle_finalize_doc[] = {
 
 /* Describe the circle_finalize builtin. */
 DEFINE_BUILTIN(circle_finalize, "circle_finalize");
+
+/* Abort Circle-Bash. */
+int
+circle_abort_builtin (WORD_LIST *list)
+{
+  no_args(list);
+  CIRCLE_abort();
+  return EXECUTION_SUCCESS;
+}
+
+/* Define the documentation for the circle_abort builtin. */
+static char *circle_abort_doc[] = {
+  "Terminate queue processing.",
+  "",
+  "Exit Status:",
+  "Returns 0 unless an error occurs.",
+  NULL
+};
+
+/* Describe the circle_abort builtin. */
+DEFINE_BUILTIN(circle_abort, "circle_abort");

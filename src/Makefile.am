@@ -21,6 +21,7 @@ mpibash_la_LDFLAGS = -module -avoid-version
 circlebash_la_SOURCES = \
 	mpibash.h \
 	circle-init.c \
+	circle-opts.c \
 	util.c
 circlebash_la_CPPFLAGS = $(BASH_CPPFLAGS)
 circlebash_la_CFLAGS = $(CIRCLE_CFLAGS)

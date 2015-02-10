@@ -24,6 +24,7 @@ src/Makefile
 src/Makefile.in
 src/circlebash.la
 src/circlebash_la-circle-init.lo
+src/circlebash_la-circle-opts.lo
 src/circlebash_la-util.lo
 src/libmpibash.la
 src/mpibash.la
