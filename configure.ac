@@ -17,6 +17,7 @@ AC_CHECK_PROG([READLINK], [readlink], [yes], [no])
 if test "x$READLINK" != xyes ; then
   AC_MSG_ERROR([Cannot continue without a readlink program.])
 fi
+PKG_PROG_PKG_CONFIG
 
 # Find an already-configured bash source tree.
 AC_ARG_WITH([bashdir],
@@ -119,8 +120,60 @@ fi
 AC_SEARCH_LIBS([dladdr], [dl], , [
   AC_MSG_ERROR([Cannot continue without the dladdr Glibc extension.])])
 
+# Determine if we have Libcircle installed.
+AC_CACHE_CHECK([if we can compile and link a Libcircle program],
+  [ax_cv_link_libcircle],
+  [ax_cv_link_libcircle=no
+   AC_LINK_IFELSE(
+    [AC_LANG_SOURCE([[
+#include <sys/types.h>
+#include <libcircle.h>
+
+int main (int argc, char *argv[])
+{
+  (void) CIRCLE_init(argc, argv, 0);
+  return 0;
+}
+    ]])],
+    [ax_cv_link_libcircle=yes],
+    [
+# Try to find the Libcircle headers and libraries using pkg-config.
+if test "x$PKG_CONFIG" != xno ; then
+  PKG_CHECK_EXISTS([libcircle], [
+    orig_CFLAGS="$CFLAGS"
+    CFLAGS="$CFLAGS `$PKG_CONFIG libcircle --cflags`"
+    orig_LIBS="$LIBS"
+    LIBS="$LIBS `$PKG_CONFIG libcircle --libs`"
+    AC_LINK_IFELSE(
+      [AC_LANG_SOURCE([[
+#include <sys/types.h>
+#include <libcircle.h>
+
+int main (int argc, char *argv[])
+{
+  (void) CIRCLE_init(argc, argv, 0);
+  return 0;
+}
+      ]])],
+      [ax_cv_link_libcircle=yes
+       CIRCLE_CFLAGS="`$PKG_CONFIG libcircle --cflags`"
+       CIRCLE_LIBS="`$PKG_CONFIG libcircle --libs`"])
+    CFLAGS="$orig_CFLAGS"
+    LIBS="$orig_LIBS"
+  ])
+fi
+])])
+AC_SUBST([CIRCLE_CFLAGS])
+AC_SUBST([CIRCLE_LIBS])
+AM_CONDITIONAL([HAVE_LIBCIRCLE], [test "x$ax_cv_link_libcircle" = xyes])
+
 # Tell the Makefiles where plugins should be installed.
 AC_SUBST([plugindir], [$libexecdir/$PACKAGE_NAME])
+
+# Warn the user if Libcircle isn't available.
+if test "x$ax_cv_link_libcircle" != xyes ; then
+  AC_MSG_WARN([Building MPI-Bash without Libcircle support])
+fi
 
 # Generate Makefiles and other files.
 AC_CONFIG_FILES([Makefile src/Makefile mpibash])

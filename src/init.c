@@ -28,52 +28,6 @@ int mpibash_num_ranks;
 
 extern int running_trap, trap_saved_exit_value;
 
-/* Invoke a bash builtin command (list of tokens ending in NULL).
- * Return EXECUTION_SUCCESS or EXECUTION_FAILURE. */
-static int
-invoke_bash_command (char *funcname, ...)
-{
-  static char *mpibash_so = NULL;   /* Path to mpibash.so */
-  sh_builtin_func_t *func;          /* Pointer to the function corresponding to funcname */
-  WORD_LIST *arg_list = NULL;       /* Function and arguments. */
-  char *one_arg;                    /* A single argument to invoke_bash_command */
-  va_list args;                     /* All arguments to invoke_bash_command */
-
-  /* Find our .so file name. */
-  if (mpibash_so == NULL) {
-    Dl_info self_info;
-
-    if (dladdr(invoke_bash_command, &self_info) == 0 || self_info.dli_fname == NULL) {
-      fprintf(stderr, _("mpi_init: failed to find the MPI-Bash .so file\n"));
-      return EXECUTION_FAILURE;
-    }
-    mpibash_so = strdup(self_info.dli_fname);
-  }
-
-  /* Find the given command, even if it's disabled. */
-  func = builtin_address(funcname);
-  if (func == NULL) {
-    fprintf(stderr, _("mpi_init: failed to find the %s builtin\n"), funcname);
-    return EXECUTION_FAILURE;
-  }
-
-  /* Construct a list of arguments. */
-  va_start(args, funcname);
-  for (one_arg = va_arg(args, char *); one_arg != NULL; one_arg = va_arg(args, char *))
-    arg_list = make_word_list(make_bare_word(one_arg), arg_list);
-  va_end(args);
-  arg_list = REVERSE_LIST(arg_list, WORD_LIST *);
-
-  /* Invoke the specified command with its arguments. */
-  if (func(arg_list) == EXECUTION_FAILURE) {
-    fprintf(stderr, _("mpi_init: failed to get execute bash function %s\n"), funcname);
-    dispose_words(arg_list);
-    return EXECUTION_FAILURE;
-  }
-  dispose_words(arg_list);
-  return EXECUTION_SUCCESS;
-}
-
 /* Load another builtin from our plugin by invoking "enable -f
  * mpibash.so <name>". */
 static int
@@ -96,7 +50,7 @@ load_mpi_builtin (char *name)
   }
 
   /* Enable the given MPI-Bash function. */
-  return invoke_bash_command("enable", "-f", mpibash_so, name, NULL);
+  return mpibash_invoke_bash_command("enable", "-f", mpibash_so, name, NULL);
 }
 
 /* Initialize MPI with MPI_Init().  This has never worked for me with
@@ -136,7 +90,7 @@ mpi_init_builtin (WORD_LIST *list)
 
   /* The LD_PRELOAD of mpibash.so seems to mess up ordinary commands we try to
    * run.  Remove that variable from the environment. */
-  if (invoke_bash_command("unset", "LD_PRELOAD", NULL) != EXECUTION_SUCCESS)
+  if (mpibash_invoke_bash_command("unset", "LD_PRELOAD", NULL) != EXECUTION_SUCCESS)
     return EXECUTION_FAILURE;
   return EXECUTION_SUCCESS;
 }

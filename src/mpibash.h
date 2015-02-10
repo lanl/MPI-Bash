@@ -77,5 +77,6 @@ extern int mpibash_num_ranks;
 extern SHELL_VAR *mpibash_bind_variable_number (const char *name, long value, int flags);
 extern int mpibash_report_mpi_error (int mpierr);
 extern SHELL_VAR *mpibash_bind_array_variable_number (char *name, arrayind_t ind, long value, int flags);
+extern int mpibash_invoke_bash_command(char *funcname, ...);
 
 #endif

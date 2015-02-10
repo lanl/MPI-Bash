@@ -22,6 +22,7 @@ export prefix="@prefix@"
 export exec_prefix="@exec_prefix@"
 export mpibashdir="@plugindir@"
 export MPIBASH_PLUGIN="$mpibashdir/mpibash.so"
+export CIRCLEBASH_PLUGIN="$mpibashdir/circlebash.so"
 export LD_PRELOAD="$MPIBASH_PLUGIN"
 export -n prefix exec_prefix mpibashdir
 exec bash "$@"

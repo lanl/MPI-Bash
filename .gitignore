@@ -22,6 +22,9 @@ src/.deps/
 src/.libs/
 src/Makefile
 src/Makefile.in
+src/circlebash.la
+src/circlebash_la-circle-init.lo
+src/circlebash_la-util.lo
 src/libmpibash.la
 src/mpibash.la
 src/mpibash_la-coll.lo
