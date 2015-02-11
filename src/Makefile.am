@@ -24,6 +24,7 @@ circlebash_la_SOURCES = \
 	circle-init.c \
 	circle-opts.c \
 	circle-queue.c \
+	circle-reduce.c \
 	util.c
 circlebash_la_CPPFLAGS = $(BASH_CPPFLAGS)
 circlebash_la_CFLAGS = $(CIRCLE_CFLAGS)

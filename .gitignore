@@ -26,6 +26,7 @@ src/circlebash.la
 src/circlebash_la-circle-init.lo
 src/circlebash_la-circle-opts.lo
 src/circlebash_la-circle-queue.lo
+src/circlebash_la-circle-reduce.lo
 src/circlebash_la-util.lo
 src/libmpibash.la
 src/mpibash.la

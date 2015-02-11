@@ -89,3 +89,27 @@ mpibash_invoke_bash_command(char *funcname, ...)
   dispose_words(arg_list);
   return EXECUTION_SUCCESS;
 }
+
+/* Look up a user-provided callback function. */
+int
+mpibash_find_callback_function (WORD_LIST *list, SHELL_VAR **user_func)
+{
+  char *funcname;     /* Name of the user-defined function. */
+
+  /* If no argument was provided, nullify the callback function. */
+  if (list == NULL) {
+    *user_func = NULL;
+    return EXECUTION_SUCCESS;
+  }
+
+  /* Get the callback function. */
+  funcname = list->word->word;
+  list = list->next;
+  no_args(list);
+  *user_func = find_function(funcname);
+  if (*user_func == NULL) {
+    builtin_error(_("function %s not found"), funcname);
+    return EXECUTION_FAILURE;
+  }
+  return EXECUTION_SUCCESS;
+}

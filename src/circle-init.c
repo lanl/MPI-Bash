@@ -10,21 +10,25 @@
 SHELL_VAR *circlebash_create_func = NULL;   /* User-defined callback function for CIRCLE_cb_create. */
 SHELL_VAR *circlebash_process_func = NULL;  /* User-defined callback function for CIRCLE_cb_process. */
 CIRCLE_handle *circlebash_current_handle = NULL;    /* Active handle within a callback or NULL if not within a callback */
+SHELL_VAR *circlebash_reduce_init_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_init. */
+SHELL_VAR *circlebash_reduce_op_func = NULL;   /* User-defined callback function for CIRCLE_cb_reduce_op. */
+SHELL_VAR *circlebash_reduce_fini_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_fini. */
+int circlebash_within_reduction = 0;           /* 1=within a reduction callback; 0=not */
 
-/* Define all of our file-local variables as static. */
-static SHELL_VAR *reduce_init_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_init. */
-static SHELL_VAR *reduce_op_func = NULL;   /* User-defined callback function for CIRCLE_cb_reduce_op. */
-static SHELL_VAR *reduce_fini_func = NULL;  /* User-defined callback function for CIRCLE_cb_reduce_fini. */
-static int within_reduction = 0;           /* 1=within a reduction callback; 0=not */
+/* Define all of our file-local variables as statics. */
 static char *all_circle_builtins[] = {  /* All builtins that Circle-Bash defines except circle_init */
   "circle_abort",
   "circle_begin",
   "circle_cb_create",
   "circle_cb_process",
+  "circle_cb_reduce_fini",
+  "circle_cb_reduce_init",
+  "circle_cb_reduce_op",
   "circle_dequeue",
   "circle_enable_logging",
   "circle_enqueue",
   "circle_finalize",
+  "circle_reduce",
   "circle_set_options",
   NULL
 };
@@ -60,23 +64,23 @@ internal_process_func (CIRCLE_handle * handle)
 }
 
 /* Invoke the user-defined reduction-initiation callback function
- * (reduce_init_func). */
+ * (circlebash_reduce_init_func). */
 static void
 internal_reduce_init_func (void)
 {
   WORD_LIST *funcargs;
 
-  if (reduce_init_func == NULL)
+  if (circlebash_reduce_init_func == NULL)
     return;
-  within_reduction = 1;
+  circlebash_within_reduction = 1;
   funcargs = make_word_list(make_word("cb_reduce_init"), NULL);
-  execute_shell_function(reduce_init_func, funcargs);
+  execute_shell_function(circlebash_reduce_init_func, funcargs);
   dispose_words(funcargs);
-  within_reduction = 0;
+  circlebash_within_reduction = 0;
 }
 
 /* Invoke the user-defined reduction callback function
- * (reduce_op_func). */
+ * (circlebash_reduce_op_func). */
 static void
 internal_reduce_op_func (buf1, size1, buf2, size2)
      const void *buf1;
@@ -86,29 +90,29 @@ internal_reduce_op_func (buf1, size1, buf2, size2)
 {
   WORD_LIST *funcargs;
 
-  if (reduce_op_func == NULL)
+  if (circlebash_reduce_op_func == NULL)
     return;
-  within_reduction = 1;
+  circlebash_within_reduction = 1;
   funcargs = make_word_list(make_word(buf2), NULL);
   funcargs = make_word_list(make_word(buf1), funcargs);
   funcargs = make_word_list(make_word("cb_reduce_op"), funcargs);
-  execute_shell_function(reduce_op_func, funcargs);
+  execute_shell_function(circlebash_reduce_op_func, funcargs);
   dispose_words(funcargs);
-  within_reduction = 0;
+  circlebash_within_reduction = 0;
 }
 
 /* Invoke the user-defined reduction-finalization callback function
- * (reduce_fini_func). */
+ * (circlebash_reduce_fini_func). */
 static void
 internal_reduce_fini_func (const void *buf, size_t size)
 {
   WORD_LIST *funcargs;
 
-  if (reduce_fini_func == NULL)
+  if (circlebash_reduce_fini_func == NULL)
     return;
   funcargs = make_word_list(make_word(buf), NULL);
   funcargs = make_word_list(make_word("cb_reduce_fini"), funcargs);
-  execute_shell_function(reduce_fini_func, funcargs);
+  execute_shell_function(circlebash_reduce_fini_func, funcargs);
   dispose_words(funcargs);
 }
 

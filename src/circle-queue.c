@@ -6,35 +6,11 @@
 
 #include "circlebash.h"
 
-/* Look up a user-provided callback function. */
-static int
-find_callback_function (WORD_LIST *list, SHELL_VAR **user_func)
-{
-  char *funcname;     /* Name of the user-defined function. */
-
-  /* If no argument was provided, nullify the callback function. */
-  if (list == NULL) {
-    *user_func = NULL;
-    return EXECUTION_SUCCESS;
-  }
-
-  /* Get the callback function. */
-  funcname = list->word->word;
-  list = list->next;
-  no_args(list);
-  *user_func = find_function(funcname);
-  if (*user_func == NULL) {
-    builtin_error(_("function %s not found"), funcname);
-    return EXECUTION_FAILURE;
-  }
-  return EXECUTION_SUCCESS;
-}
-
 /* Register a callback for populating the distributed queue. */
 static int
 circle_cb_create_builtin (WORD_LIST *list)
 {
-  return find_callback_function(list, &circlebash_create_func);
+  return mpibash_find_callback_function(list, &circlebash_create_func);
 }
 
 /* Define the documentation for the circle_cb_create builtin. */
@@ -60,7 +36,7 @@ DEFINE_BUILTIN(circle_cb_create, "circle_cb_create [func]");
 static int
 circle_cb_process_builtin (WORD_LIST *list)
 {
-  return find_callback_function(list, &circlebash_process_func);
+  return mpibash_find_callback_function(list, &circlebash_process_func);
 }
 
 /* Define the documentation for the circle_cb_process builtin. */

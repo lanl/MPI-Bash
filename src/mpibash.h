@@ -78,5 +78,6 @@ extern SHELL_VAR *mpibash_bind_variable_number (const char *name, long value, in
 extern int mpibash_report_mpi_error (int mpierr);
 extern SHELL_VAR *mpibash_bind_array_variable_number (char *name, arrayind_t ind, long value, int flags);
 extern int mpibash_invoke_bash_command(char *funcname, ...);
+extern int mpibash_find_callback_function (WORD_LIST *list, SHELL_VAR **user_func);
 
 #endif
