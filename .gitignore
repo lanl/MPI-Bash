@@ -23,6 +23,7 @@ src/.libs/
 src/Makefile
 src/Makefile.in
 src/circlebash.la
+src/circlebash_la-circle-ckpt.lo
 src/circlebash_la-circle-init.lo
 src/circlebash_la-circle-opts.lo
 src/circlebash_la-circle-queue.lo

@@ -24,10 +24,12 @@ static char *all_circle_builtins[] = {  /* All builtins that Circle-Bash defines
   "circle_cb_reduce_fini",
   "circle_cb_reduce_init",
   "circle_cb_reduce_op",
+  "circle_checkpoint",
   "circle_dequeue",
   "circle_enable_logging",
   "circle_enqueue",
   "circle_finalize",
+  "circle_read_restarts",
   "circle_reduce",
   "circle_set_options",
   NULL
