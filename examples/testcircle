@@ -1,0 +1,93 @@
+#! /usr/bin/env mpibash
+
+###########################################
+# Invoke almost all Circle-Bash functions #
+# By Scott Pakin <pakin@lanl.gov>         #
+###########################################
+
+# -----------------------------------------------
+# Usage: mpirun -np <procs> testcircle [<dir>...]
+# -----------------------------------------------
+
+# Announce the next test to be performed.
+function announce_test () {
+    if [ $rank -eq 0 ] ; then
+	sleep 1    # Give stdout a chance to drain.
+	echo ""
+	echo "$@"
+    fi
+    mpi_barrier
+}
+
+# Initialize MPI and Libcircle.
+enable -f $MPIBASH_PLUGIN mpi_init
+mpi_init
+mpi_comm_rank rank
+announce_test "Loading Circle-Bash (Bash interface to Libcircle):"
+enable -f $CIRCLEBASH_PLUGIN circle_init
+circle_init
+circle_set_options split_random
+circle_enable_logging info
+echo "    Rank $rank initialized Circle-Bash."
+sleep 1
+
+# Prepare to populate the distributed queue with top-level filenames.
+function populate () {
+    # Rank 0 enqueues all of the files and directories it encounters.
+    echo ""
+    echo "Populating the distributed queue:"
+    if [ "$BASH_ARGC" ] ; then
+	for fname in "${BASH_ARGV[@]}" ; do
+	    circle_enqueue "$fname"
+	    if [ -d "$fname" ] ; then
+		echo "    Rank $rank enqueued directory $fname"
+	    else
+		echo "    Rank $rank enqueued file $fname"
+	    fi
+	done
+    else
+	circle_enqueue .
+	echo "    Rank $rank enqueued directory `pwd`"
+	echo "    (You can provide one or more alternative directories on the command line.)"
+    fi
+
+    # Announce the processing step here because we don't have a better
+    # place to do so.
+    echo ""
+    echo "Processing the distributed queue:"
+    sleep 1
+
+}
+circle_cb_create populate
+
+# Prepare to process the distributed queue.
+function walk_queue () {
+    circle_dequeue fname
+    if [ -d "$fname" ] ; then
+	echo "    Rank $rank dequeued directory $fname"
+	for subname in $(ls -A $fname) ; do
+	    relname="$fname/$subname"
+	    circle_enqueue "$relname"
+	    if [ -d "$relname" ] ; then
+		echo "    Rank $rank enqueued directory $relname"
+	    else
+		echo "    Rank $rank enqueued file $relname"
+	    fi
+	done
+    else
+	echo "    Rank $rank dequeued file $fname"
+    fi	
+}
+circle_cb_process walk_queue
+
+# Do all the work.
+saveIFS=$IFS
+IFS=$(echo -en "\n\b")
+circle_begin
+IFS=$saveIFS
+
+# Finish up.
+announce_test "Testing circle_finalize:"
+circle_finalize
+mpi_finalize
+echo "    Goodbye from rank $rank."
