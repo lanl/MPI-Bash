@@ -204,7 +204,7 @@ mpi_scan_builtin (WORD_LIST *list)
 static char *mpi_scan_doc[] = {
   "Perform an inclusive scan across all processes in the same MPI job.",
   "",
-  " -O OPERATION   Operation to perform.  Must be one of \"max\", \"min\",",
+  "  -O OPERATION  Operation to perform.  Must be one of \"max\", \"min\",",
   "                \"sum\", \"prod\", \"land\", \"band\", \"lor\", \"bor\", \"lxor\",",
   "                \"bxor\", \"maxloc\", or \"minloc\" (default: \"sum\").",
   "",
@@ -242,7 +242,7 @@ mpi_exscan_builtin (WORD_LIST *list)
 static char *mpi_exscan_doc[] = {
   "Perform an exclusive scan across all processes in the same MPI job.",
   "",
-  " -O OPERATION   Operation to perform.  Must be one of \"max\", \"min\",",
+  "  -O OPERATION  Operation to perform.  Must be one of \"max\", \"min\",",
   "                \"sum\", \"prod\", \"land\", \"band\", \"lor\", \"bor\", \"lxor\",",
   "                \"bxor\", \"maxloc\", or \"minloc\" (default: \"sum\").",
   "",
@@ -283,7 +283,7 @@ static char *mpi_allreduce_doc[] = {
   "",
   "Options:",
   "",
-  " -O OPERATION   Operation to perform.  Must be one of \"max\", \"min\",",
+  "  -O OPERATION  Operation to perform.  Must be one of \"max\", \"min\",",
   "                \"sum\", \"prod\", \"land\", \"band\", \"lor\", \"bor\", \"lxor\",",
   "                \"bxor\", \"maxloc\", or \"minloc\" (default: \"sum\").",
   "",
