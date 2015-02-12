@@ -4,11 +4,8 @@
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
-EXAMPLES = \
+examplesdir = $(docdir)/examples
+dist_examples_SCRIPTS = \
 	testmpi \
 	testcircle \
 	pingpong
-
-examplesdir = $(docdir)/examples
-examples_SCRIPTS = $(EXAMPLES)
-EXTRA_DIST = $(EXAMPLES)

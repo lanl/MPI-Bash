@@ -5,6 +5,14 @@
 # By Scott Pakin                         #
 ##########################################
 
+# Initialize both MPI and Libcircle.
+enable -f $MPIBASH_PLUGIN mpi_init
+mpi_init
+mpi_comm_rank rank
+mpi_comm_size nranks
+enable -f $CIRCLEBASH_PLUGIN circle_init
+circle_init
+
 # Define the maximum number of bytes to read/write at once.  This
 # should be large enough to get good performance from a parallel
 # filesystem but not so large that it thrashes the TLB.
@@ -12,10 +20,6 @@ maxblocksize=104857600
 
 # Store the name of this script for use in generating error messages.
 progname=$(basename "$0")
-
-# Cache MPI parameters.
-mpi_comm_rank rank
-mpi_comm_size nranks
 
 # Define a character that must not appear in a filespec.
 sep=$'\t'
@@ -33,11 +37,6 @@ function abend () {
     warn "$@"
     exit 1
 }
-
-# Require Libcircle-enabled MPI-Bash.
-if [ $libcircle != yes ] ; then
-    abend 0 "To run this script, MPI-Bash must be built against Libcircle"
-fi
 
 # Parse the command line.
 recursive=no
@@ -189,8 +188,10 @@ function initialize_copying () {
 	else
 	    if [ $copy_type = dir-to-dir ] ; then
 		outfile="$target_name"
-	    else
+	    elif [ $copy_type = file-to-dir ] ; then
 		outfile="$target_name/"$(basename "$infile")
+	    else
+		outfile="$target_name"
 	    fi
 	    enqueue_segments "$infile" "$outfile"
 	fi
@@ -279,3 +280,7 @@ fi
 circle_cb_create initialize_copying
 circle_cb_process copy_piece
 circle_begin
+
+# Finalize both MPI and Libcircle.
+circle_finalize
+mpi_finalize

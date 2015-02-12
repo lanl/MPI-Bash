@@ -4,6 +4,6 @@
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
-SUBDIRS = src examples
+SUBDIRS = src commands examples
 
 bin_SCRIPTS = mpibash
