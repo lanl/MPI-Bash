@@ -1,18 +1,20 @@
 #! /usr/bin/env mpibash
 
-######################################################
-# Quickly compress a large file using mpibash and xz #
-# By Scott Pakin <pakin@lanl.gov>                    #
-######################################################
+#######################################################
+# Quickly compress a large file using MPI-Bash and xz #
+# By Scott Pakin <pakin@lanl.gov>                     #
+#######################################################
+
+# Initialize MPI.
+enable -f $MPIBASH_PLUGIN mpi_init
+mpi_init
+mpi_comm_rank rank
+mpi_comm_size nranks
 
 # Define the maximum number of bytes to read/write at once.  This
 # should be large enough to get good performance from a parallel
 # filesystem but not so large that it thrashes the TLB.
 maxblocksize=104857600
-
-# Cache MPI parameters.
-mpi_comm_rank rank
-mpi_comm_size nranks
 
 # Parse the command line.  We accept only a few, specific, xz options.
 # The rest don't make sense in the context of this script.
@@ -126,3 +128,6 @@ while [ $# -ge 1 ] ; do
         rm -f "$origfile"
     fi
 done
+
+# Finalize MPI.
+mpi_finalize

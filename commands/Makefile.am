@@ -6,4 +6,5 @@
 
 dist_bin_SCRIPTS = \
 	mbcp \
-	mbtar
+	mbtar \
+	mbxz
