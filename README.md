@@ -55,9 +55,9 @@ If MPI-Bash is run on a large number of nodes, a parallel filesystem (e.g., [Lus
 Documentation
 -------------
 
-For the time being, see the [old MPI-Bash home page](http://www.ccs3.lanl.gov/~pakin/software/mpibash-4.3.html) for descriptions of each MPI function that MPI-Bash adds to Bash.  For a more scholarly discussion, see
+MPI-Bash documentation appears on the [MPI-Bash wiki](https://github.com/losalamos/MPI-Bash/wiki).  For a more scholarly discussion of MPI-Bash, see the following publication:
 
-> Scott Pakin, "Parallel Post-Processing with MPI-Bash".  *Proceedings of the First International Workshop on HPC User Support Tools* (HUST-14), New Orleans, Lousiana, pp. 1-12, November 2014.  IEEE Press, Piscataway, New Jersey, USA. ISBN: 978-1-4799-7023-0.
+> Scott Pakin, "Parallel Post-Processing with MPI-Bash".  *Proceedings of the First International Workshop on HPC User Support Tools* (HUST-14), New Orleans, Lousiana, pp. 1-12, November 2014.  IEEE Press, Piscataway, New Jersey, USA. ISBN: 978-1-4799-7023-0, URL: http://dl.acm.org/citation.cfm?id=2691137, DOI: [10.1109/HUST.2014.9](http://dx.doi.org/10.1109/HUST.2014.9).
 
 Copyright and license
 ---------------------
