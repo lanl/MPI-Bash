@@ -4,4 +4,6 @@
 # By Scott Pakin <pakin@lanl.gov>    #
 ######################################
 
-dist_bin_SCRIPTS = mbcp
+dist_bin_SCRIPTS = \
+	mbcp \
+	mbtar

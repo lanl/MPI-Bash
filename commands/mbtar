@@ -1,18 +1,22 @@
 #! /usr/bin/env mpibash
 
-#############################################
-# Quick tar up a set of files using mpibash #
-# By Scott Pakin <pakin@lanl.gov>           #
-#############################################
+################################################
+# Quickly tar up a set of files using MPI-Bash #
+# By Scott Pakin <pakin@lanl.gov>              #
+################################################
+
+# Initialize both MPI and Libcircle.
+enable -f $MPIBASH_PLUGIN mpi_init
+mpi_init
+mpi_comm_rank rank
+mpi_comm_size nranks
+enable -f $CIRCLEBASH_PLUGIN circle_init
+circle_init
 
 # Define the maximum number of bytes to read/write at once.  This
 # should be large enough to get good performance from a parallel
 # filesystem but not so large that it thrashes the TLB.
 maxblocksize=104857600
-
-# Cache MPI parameters.
-mpi_comm_rank rank
-mpi_comm_size nranks
 
 # Define a character that must not appear in a filespec.
 sep=$'\t'
@@ -55,6 +59,7 @@ if [ -z "$tarfile" -o $create = no -o \( $# -eq 0 -a -z "$listfile" \) ] ; then
     exit 1
 fi
 arglist=("$@")
+cd "$workdir"
 
 # Given a file name and file size, return the expected tar header + data size.
 declare -A -x header_size_cache
@@ -226,3 +231,7 @@ if [ $rank -eq 0 ] ; then
     truncate --size=%512 "$tarfile"
     truncate --size=+1024 "$tarfile"
 fi
+
+# Finalize both MPI and Libcircle.
+circle_finalize
+mpi_finalize

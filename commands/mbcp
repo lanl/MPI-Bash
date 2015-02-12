@@ -1,9 +1,9 @@
 #! /usr/bin/env mpibash
 
-##########################################
-# Quickly copy large files using mpibash #
-# By Scott Pakin                         #
-##########################################
+###########################################
+# Quickly copy large files using MPI-Bash #
+# By Scott Pakin <pakin@lanl.gov>         #
+###########################################
 
 # Initialize both MPI and Libcircle.
 enable -f $MPIBASH_PLUGIN mpi_init

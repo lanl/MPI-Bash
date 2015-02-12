@@ -38,7 +38,7 @@ function populate () {
     echo "Populating the distributed queue:"
     if [ "$BASH_ARGC" ] ; then
 	for fname in "${BASH_ARGV[@]}" ; do
-	    circle_enqueue "$fname"
+	    circle_enqueue "${fname%/}"
 	    if [ -d "$fname" ] ; then
 		echo "    Rank $rank enqueued directory $fname"
 	    else
