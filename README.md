@@ -13,30 +13,42 @@ MPI-Bash makes it easy to parallelize Bash scripts that run a set of Linux comma
 Installation
 ------------
 
-1. Download the [Bash source code](http://www.gnu.org/software/bash/).  MPI-Bash has been tested only with Bash v4.3 so that version is recommended.
+1. Download the [Bash source code](http://www.gnu.org/software/bash/).  As of this writing, MPI-Bash is being tested primarily with Bash v4.3.  On a Debian Linux system (or derivative such as Ubuntu), the following is a convenient approach:
 
-2. Copy MPI-Bash's `builtins/circle.def`, `builtins/Makefile.in`, `builtins/mpi.def`, `config.h.in`, `configure.ac`, `Makefile.in`, and `shell.c` to the corresponding location in the Bash source tree.
+        apt-get source bash
 
-3. Build Bash as normal:
+2. Build Bash as normal.  There is no need to install it if you already have Bash on your system.
 
         ./configure
+        make
+
+3. Go into the MPI-Bash source directory.  If you're building MPI-Bash from a Git clone rather than a release you'll have to generate the MPI-Bash `configure` script:
+
+        autoreconf -fvi
+
+4. Configure, build, and install MPI-Bash, pointing it to your Bash source tree:
+
+        ./configure --with-bashdir=$HOME/bash-4.3.30 --prefix=$HOME/mpibash CC=mpicc
         make
         make install
 
 Usage
 -----
 
-The MPI-Bash executable is normally called mpibash. Assuming that mpibash is in the invoking shell's search path, an MPI-Bash script can be written as an ordinary Bash script but with
+Unlike the initial release of MPI-Bash, which was coded as a patched version of the `bash` executable, newer versions are coded as a Bash ["loadable builtin"](http://www.drdobbs.com/shell-corner-bash-dynamically-loadable-b/199102950) (a.k.a. plugin), which makes it much easier to deploy.
+
+To use MPI-Bash functions, create an executable Bash script that begins with the following few lines:
 
     #! /usr/bin/env mpibash
 
-as the first line of the script. The script can then be run like any other MPI program, such as via a command like the following:
+    enable -f $MPIBASH_PLUGIN mpi_init
+    mpi_init
 
-    mpirun -np 100 ./my-mpibash-script
+The `enable` line loads and enables the `mpi_init` builtin, and the subsequent line invokes it.  Besides MPI initialization, `mpi_init` additionally loads and enables all of the other MPI-Bash builtins.
 
-For testing purposes, mpibash can even be run interactively on systems that support such an execution model:
+The script can then be run like any other MPI program, such as via a command like the following:
 
-    mpirun -np 4 xterm -e mpibash
+    mpirun -np 16 ./my-script.sh
 
 If MPI-Bash is run on a large number of nodes, a parallel filesystem (e.g., [Lustre](http://lustre.opensfs.org/)) is essential for performance. Otherwise, most of the parallelism that a script exposes will be lost as file operations are serialized during writes to a non-parallel filesystem.
 
