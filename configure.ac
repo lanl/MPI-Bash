@@ -176,5 +176,6 @@ if test "x$ax_cv_link_libcircle" != xyes ; then
 fi
 
 # Generate Makefiles and other files.
-AC_CONFIG_FILES([Makefile src/Makefile mpibash])
+AC_CONFIG_FILES([Makefile src/Makefile examples/Makefile])
+AC_CONFIG_FILES([mpibash])
 AC_OUTPUT
