@@ -1,0 +1,62 @@
+.TH MBTAR 1 2015-02-12 "LANL" "User Commands"
+.SH NAME
+mbtar \- Archive files in parallel with MPI-Bash
+.SH SYNOPSIS
+\fBmbtar\fR
+\fB-c\fR
+[\fB-C\fR \fIdir\fR]
+[\fB-T\fR \fIlist_file\fR]
+[\fB-v\fR]
+\fB-f\fR \fIoutput.tar\fR
+\fIinput_file\fR...
+.SH DESCRIPTION
+\fBmbtar\fR is a parallel version of the standard \fBtar\fR command,
+designed to archive large files or large numbers of files\(emor even
+large numbers of large files\(emby distributing the work across a set
+of computers that share a filesystem.
+.LP
+\fBmbtar\fR is a \fBbash\fR script that uses MPI-Bash functions for
+communication.  It should therefore be run like any other MPI program
+(typically with \fBmpirun\fR or \fBmpiexec\fR).
+.SH OPTIONS
+\fBmbtar\fR accepts only a subset of \fBtar\fR's options:
+.TP 5m
+\fB-c\fR
+Create a new archive.
+.TP 5m
+\fB-C\fR \fIdir\fR
+Change to directory \fIdir\fR.
+.TP 5m
+\fB-T\fR \fIfile\fR
+Get names to extract or create from \fIfile\fR.
+.TP 5m
+\fB-v\fR
+Verbosely list files processed.
+.TP 5m
+\fB-f\fR \fIarchive\fR
+Use archive file \fIarchive\fR.
+.LP
+In addition, at least one source file or directory must be specified
+on the command line.
+.LP
+Apart from supporting many fewer options, \fBmbtar\fR differs from
+\fBtar\fR in that it can only create an archive and that this archive
+must be an ordinary disk files.  (Writing to standard output, for
+example, does not work.)  Consequently, the \fB-c\fR and \fB-f\fR
+options are \fImandatory\fR in \fBmbtar\fR.
+.SH EXAMPLES
+Use 128 processes to archive a large directory into a single file:
+.LP
+.RS
+\fCmpirun -np 128 mbtar -c -v -f archive.tar jumbo_dir
+.RE
+.SH BUGS
+I sometimes see segmentation faults when MPI-Bash programs exit.  I
+don't know why.
+.SH AUTHOR
+Scott Pakin, \fIpakin@lanl.gov\fR
+.SH COPYRIGHT
+Copyright \(co 2015 Los Alamos National Security, LLC
+.SH SEE ALSO
+\fItar\fR\|(1), \fImpirun\fR\|(1),
+MPI-Bash <https://github.com/losalamos/MPI-Bash>
