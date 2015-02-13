@@ -44,7 +44,7 @@ verbosity=0
 clobber=yes
 dereference=yes
 preserve_attrs=no
-usagestr="Usage: $progname [-r] [-v] [-n] [-P] [-p] [-a] <file>... <file|directory>"
+usagestr="Usage: $progname [-r] [-v] [-n] [-P] [-p] [-a] <file|directory>... <file|directory>"
 while getopts rvnPpa optname ; do
     case $optname in
         \?)

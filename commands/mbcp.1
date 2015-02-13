@@ -1,0 +1,79 @@
+.TH MBCP 1 2015-02-12 "LANL" "User Commands"
+.SH NAME
+mbcp \- Copy file in parallel with MPI-Bash
+.SH SYNOPSIS
+\fBmbcp\fR
+[\fB-r\fR]
+[\fB-v\fR]
+[\fB-n\fR]
+[\fB-P\fR]
+[\fB-p\fR]
+[\fB-a\fR]
+<\fIsource file\fR|\fIsource directory\fR>...
+<\fItarget file\fR|\fItarget directory\fR>
+.SH DESCRIPTION
+\fBmbcp\fR is a parallel version of the standard \fBcp\fR command,
+designed to copy large files or large numbers of files\(emor even
+large numbers of large files\(emby distributing the work across a set
+of computers that share a filesystem.  It can copy
+.TP 1m
+\(bu
+a single file to a single file,
+.TP 1m
+\(bu
+a single directory to a single directory, or
+.TP 1m
+\(bu
+one or more files and/or directories to a directory.
+.LP
+\fBmbcp\fR is a \fBbash\fR script that uses MPI-Bash functions for
+communication.  It should therefore be run like any other MPI program
+(typically with \fBmpirun\fR or \fBmpiexec\fR).
+.SH OPTIONS
+\fBmbcp\fR accepts only a subset of \fBcp\fR's options:
+.TP 1c
+\fB-r\fR
+Copy directories recursively.
+.TP 1c
+\fB-v\fR
+Explain what is being done.
+.TP 1c
+\fB-n\fR
+Do not overwrite an existing file.
+.TP 1c
+\fB-P\fR
+Never follow symbolic links in \fIsource\fR.
+.TP 1c
+\fB-p\fR
+Preserve file mode, ownership, and timestamps.
+.TP 1c
+\fB-a\fR
+Same as \fB-P\fR \fB-p\fR \fB-r\fR.
+.LP
+In addition, at least one source file or directory and exactly one
+target file or directory must be specified on the command line.
+.SH EXAMPLES
+Use 16 processes to copy one file to another:
+.LP
+.RS
+\fCmpirun -np 16 mbcp my_giant_file their_giant_file.BAK\fR
+.RE
+.LP
+Use 128 processes to copy one directory to another, with verbose
+reporting:
+.LP
+.RS
+\fCmpirun -np 128 mbcp -r -v /scratch/me/big /usr/projects/myproj/big
+.RE
+.LP
+.SH BUGS
+I sometimes see segmentation faults when MPI-Bash programs exit.  I
+don't know why.
+.SH AUTHOR
+Scott Pakin, \fIpakin@lanl.gov\fR
+.SH COPYRIGHT
+Copyright \(co 2015 Los Alamos National Security, LLC
+.SH SEE ALSO
+\fIcp\fR\|(1), \fImpirun\fR\|(1),
+MPI-Bash <https://github.com/losalamos/MPI-Bash>
+
