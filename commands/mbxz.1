@@ -1,0 +1,90 @@
+.TH MBXZ 1 2015-02-12 "LANL" "User Commands"
+.SH NAME
+mbxz \- Compress a file in parallel with MPI-Bash
+.SH SYNOPSIS
+\fBmbxz\fR
+[\fB-k\fR]
+[\fB-f\fR]
+[\fB-S\fR \fI.suf\fR]
+[\fB-C\fR \fIcheck\fR]
+[\fB-0\fR ... \fB-9\fR]
+[\fB-e\fR]
+[\fB-M\fR \fIlimit\fR]
+[\fB-q\fR]
+[\fB-v\fR]
+[\fB-Q\fR]
+\fIinput_file\fR...
+.SH DESCRIPTION
+\fBmbxz\fR is a parallel version of the standard \fBxz\fR command,
+designed to compress large files by distributing the work across a set
+of computers that share a filesystem.
+.LP
+\fBmbxz\fR is a \fBbash\fR script that uses MPI-Bash functions for
+communication.  It should therefore be run like any other MPI program
+(typically with \fBmpirun\fR or \fBmpiexec\fR).
+.SH OPTIONS
+\fBmbxz\fR accepts many of \fBxz\fR's options:
+.TP 5m
+\fB-k\fR
+Don't delete the input file(s).
+.TP 5m
+\fB-f\fR
+If the target file already exists, delete it before compressing.
+.TP 5m
+\fB-S\fR \fI.suf\fR
+When compressing, use \fI.suf\fR as the suffix for the target file
+instead of \fB.xz\fR.
+.TP 5m
+\fB-C\fR \fIcheck\fR
+Specify the type of the integrity check.
+.TP 5m
+\fB-0\fR ... \fB-9\fR
+Select a compression preset level.  The default is \fB-6\fR.
+.TP 5m
+\fB-e\fR
+Use a slower variant of the selected compression preset level
+(\fB-0\fR ... \fB-9\fR) to hopefully get a little bit better
+compression ratio, but with bad luck this can also make it worse.
+Compressor memory usage increases a little at preset levels
+\fB-0\fR ... \fB-3\fR.
+.TP 5m
+\fB-M\fR \fIlimit\fR
+Set a memory usage limit for compression.
+.TP 5m
+\fB-q\fR
+Suppress warnings and notices.  Specify this twice to suppress errors,
+too.
+.TP 5m
+\fB-v\fR
+Be verbose.  Specifying \fB-v\fR twice will give even more verbose
+output.
+.TP 5m
+\fB-Q\fR
+Don't set the exit status to 2 even if a condition worth a warning was
+detected.  This option doesn't affect the verbosity level, thus both
+\fB-q\fR and \fB-Q\fR have to be used to not display warnings and to
+not alter the exit status.
+.LP
+See the \fBxz\fR manual page for further explanations of many of those
+options.
+.LP
+At least one source file must be specified on the command line.
+.LP
+Apart from supporting fewer options, \fBmbxz\fR differs from
+\fBxz\fR in that it can only compress, not decompress, files.
+.SH EXAMPLES
+Use 128 processes to compress a large file:
+.LP
+.RS
+\fCmpirun -np 128 mbxz -v /scratch/me/my_gigantic_file
+.RE
+.SH BUGS
+I sometimes see segmentation faults when MPI-Bash programs exit.  I
+don't know why.
+.SH AUTHOR
+Scott Pakin, \fIpakin@lanl.gov\fR
+.SH COPYRIGHT
+Copyright \(co 2015 Los Alamos National Security, LLC
+.SH SEE ALSO
+\fIxz\fR\|(1), \fImpirun\fR\|(1),
+MPI-Bash <https://github.com/losalamos/MPI-Bash>

@@ -11,4 +11,5 @@ dist_bin_SCRIPTS = \
 
 dist_man1_MANS = \
 	mbcp.1 \
-	mbtar.1
+	mbtar.1 \
+	mbxz.1
