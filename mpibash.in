@@ -21,6 +21,6 @@
 prefix="@prefix@"
 exec_prefix="@exec_prefix@"
 mpibashdir="@plugindir@"
-export LD_LIBRARY_PATH="$mpibashdir:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$mpibashdir${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
 export LD_PRELOAD="$mpibashdir/mpibash.so"
 exec bash "$@"
