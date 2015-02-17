@@ -26,8 +26,6 @@ static char *all_mpibash_builtins[] = {  /* All builtins MPI-Bash defines except
 int mpibash_rank;
 int mpibash_num_ranks;
 
-extern int running_trap, trap_saved_exit_value;
-
 /* Load another builtin from our plugin by invoking "enable -f
  * mpibash.so <name>". */
 static int

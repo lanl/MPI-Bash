@@ -71,7 +71,7 @@
     0                  /* Reserved */                           \
   }
 
-/* Declare all of the external variables and functions we need. */
+/* Declare all of the library-local variables and functions we need. */
 extern int mpibash_rank;
 extern int mpibash_num_ranks;
 extern SHELL_VAR *mpibash_bind_variable_number (const char *name, long value, int flags);
@@ -79,5 +79,13 @@ extern int mpibash_report_mpi_error (int mpierr);
 extern SHELL_VAR *mpibash_bind_array_variable_number (char *name, arrayind_t ind, long value, int flags);
 extern int mpibash_invoke_bash_command(char *funcname, ...);
 extern int mpibash_find_callback_function (WORD_LIST *list, SHELL_VAR **user_func);
+
+/* Declare all of the bash variables and functions we use as weak symbols.
+ * This seems to avoid errors like, "symbol lookup error:
+ * /usr/local/libexec/mpibash/mpibash.so: undefined symbol: running_trap". */
+extern int running_trap __attribute__((weak));
+extern int trap_saved_exit_value __attribute__((weak));
+extern char *list_optarg __attribute__((weak));
+extern WORD_LIST *loptend __attribute__((weak));
 
 #endif
