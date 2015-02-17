@@ -7,5 +7,5 @@
 examplesdir = $(docdir)/examples
 dist_examples_SCRIPTS = testmpi pingpong
 if HAVE_LIBCIRCLE
-  dist_examples_SCRIPTS += libcircle
+  dist_examples_SCRIPTS += testcircle
 endif

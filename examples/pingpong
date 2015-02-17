@@ -7,7 +7,7 @@
 
 niters=1000000
 
-enable -f $MPIBASH_PLUGIN mpi_init
+enable -f mpibash.so mpi_init
 mpi_init
 mpi_comm_rank rank
 

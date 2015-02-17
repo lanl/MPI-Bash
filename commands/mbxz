@@ -6,7 +6,7 @@
 #######################################################
 
 # Initialize MPI.
-enable -f $MPIBASH_PLUGIN mpi_init
+enable -f mpibash.so mpi_init
 mpi_init
 mpi_comm_rank rank
 mpi_comm_size nranks

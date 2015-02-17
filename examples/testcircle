@@ -20,11 +20,11 @@ function announce_test () {
 }
 
 # Initialize MPI and Libcircle.
-enable -f $MPIBASH_PLUGIN mpi_init
+enable -f mpibash.so mpi_init
 mpi_init
 mpi_comm_rank rank
 announce_test "Loading Circle-Bash (Bash interface to Libcircle):"
-enable -f $CIRCLEBASH_PLUGIN circle_init
+enable -f circlebash.so circle_init
 circle_init
 circle_set_options split_random
 circle_enable_logging info

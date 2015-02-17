@@ -6,14 +6,14 @@
 ###################################
 
 # This script sets two environment variables then invokes the script
-# named on the command line.  First, it sets MPIBASH_PLUGIN to the
-# full path of the mpibash.so file.  This saves scripts from having to
-# hard-wire the path.  Instead, they can load MPI-Bash simply with
-# "enable -f $MPIBASH_PLUGIN mpi_init".  Secondly, it sets LD_PRELOAD
-# to MPIBASH_PLUGIN.  This is a workaround for a workaround in Open
-# MPI.  Basically, we need to make sure that Open MPI's dlopen() takes
-# precedence over the default dlopen(), and to do that, Open MPI has
-# to be loaded into memory before bash.  See
+# named on the command line.  First, it sets LD_LIBRARY_PATH to point
+# to the full path of the mpibash.so file.  This saves scripts from
+# having to hard-wire -- or even specify -- the path.  Instead, they
+# can load MPI-Bash simply with "enable -f mpibash.so mpi_init".
+# Secondly, it sets LD_PRELOAD to mpibash.so.  This is a workaround
+# for a workaround in Open MPI.  Basically, we need to make sure that
+# Open MPI's dlopen() takes precedence over the default dlopen(), and
+# to do that, Open MPI has to be loaded into memory before bash.  See
 # http://www.open-mpi.org/faq/?category=troubleshooting#missing-symbols
 # for a discussion of the "deep run time linker voodoo" that makes
 # this trickiness necessary.
@@ -21,7 +21,6 @@
 prefix="@prefix@"
 exec_prefix="@exec_prefix@"
 mpibashdir="@plugindir@"
-export MPIBASH_PLUGIN="$mpibashdir/mpibash.so"
-export CIRCLEBASH_PLUGIN="$mpibashdir/circlebash.so"
-export LD_PRELOAD="$MPIBASH_PLUGIN"
+export LD_LIBRARY_PATH="$mpibashdir:$LD_LIBRARY_PATH"
+export LD_PRELOAD="$mpibashdir/mpibash.so"
 exec bash "$@"

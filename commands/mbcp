@@ -6,11 +6,11 @@
 ###########################################
 
 # Initialize both MPI and Libcircle.
-enable -f $MPIBASH_PLUGIN mpi_init
+enable -f mpibash.so mpi_init
 mpi_init
 mpi_comm_rank rank
 mpi_comm_size nranks
-enable -f $CIRCLEBASH_PLUGIN circle_init
+enable -f circlebash.so circle_init
 circle_init
 
 # Define the maximum number of bytes to read/write at once.  This

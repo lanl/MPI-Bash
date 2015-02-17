@@ -41,7 +41,7 @@ To use MPI-Bash functions, create an executable Bash script that begins with the
 
     #! /usr/bin/env mpibash
 
-    enable -f $MPIBASH_PLUGIN mpi_init
+    enable -f mpibash.so mpi_init
     mpi_init
 
 The `enable` line loads and enables the `mpi_init` builtin, and the subsequent line invokes it.  Besides MPI initialization, `mpi_init` additionally loads and enables all of the other MPI-Bash builtins.
