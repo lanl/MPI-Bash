@@ -5,7 +5,7 @@
 ###################################
 
 examplesdir = $(docdir)/examples
-dist_examples_SCRIPTS = \
-	testmpi \
-	testcircle \
-	pingpong
+dist_examples_SCRIPTS = testmpi pingpong
+if HAVE_LIBCIRCLE
+  dist_examples_SCRIPTS += libcircle
+endif
