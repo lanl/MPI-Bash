@@ -168,7 +168,12 @@ AC_SUBST([CIRCLE_LIBS])
 AM_CONDITIONAL([HAVE_LIBCIRCLE], [test "x$ax_cv_link_libcircle" = xyes])
 
 # Tell the Makefiles where plugins should be installed.
-AC_SUBST([plugindir], [$libexecdir/$PACKAGE_NAME])
+AC_ARG_WITH([plugindir],
+  [AS_HELP_STRING([--with-plugindir=DIR],
+    [install MPI-Bash plugins into DIR [default=$libexecdir/mpibash]])],
+  [plugindir=$withval],
+  [plugindir=$libexecdir/$PACKAGE_NAME])
+AC_SUBST([plugindir], [$plugindir])
 
 # Warn the user if Libcircle isn't available.
 if test "x$ax_cv_link_libcircle" != xyes ; then
