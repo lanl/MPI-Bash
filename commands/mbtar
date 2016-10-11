@@ -208,11 +208,8 @@ function inject_tar_data () {
             dd of="$tarfile" bs=$tsize count=1 oflag=seek_bytes seek=$offset conv=notrunc status=none
     fi
 
-    # All subsequent segments: Inject one segment's worth of data.
-    if [ $size -gt $tsize ] ; then
-        local seek_bytes=$(( $offset + $tsize + $segment*$maxblocksize ))
-        dd if="$name" of="$tarfile" bs=$maxblocksize count=1 skip=$segment oflag=seek_bytes seek=$seek_bytes conv=notrunc status=none
-    elif [ $size -gt 0 ] ; then
+    # All segments: Inject up to one segment's worth of data.
+    if [ $size -gt 0 ] ; then
         local seek_bytes=$(( $offset + $tsize + $segment*$maxblocksize ))
         dd if="$name" of="$tarfile" bs=$maxblocksize count=1 skip=$segment oflag=seek_bytes seek=$seek_bytes conv=notrunc status=none
     fi
