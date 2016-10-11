@@ -9,7 +9,6 @@
 enable -f mpibash.so mpi_init
 mpi_init
 mpi_comm_rank rank
-mpi_comm_size nranks
 enable -f circlebash.so circle_init
 circle_init
 
@@ -26,7 +25,6 @@ usagestr="Usage: $0 -c [-C <dir>] [-T <list_file>] [-v] -f <output.tar> <input_f
 verbose=no
 create=no
 workdir=.
-origargs=("$@")
 while getopts cC:T:vf: optname ; do
     case $optname in
         \?)
@@ -52,14 +50,14 @@ while getopts cC:T:vf: optname ; do
     esac
 done
 shift $((OPTIND-1))
-if [ -z "$tarfile" -o $create = no -o \( $# -eq 0 -a -z "$listfile" \) ] ; then
-    if [ $rank -eq 0 ] ; then
-        echo $usagestr 1>&2
+if [ -z "$tarfile" ] || [ $create = no ] || [[ $# -eq 0 && -z "$listfile" ]] ; then
+    if [ "$rank" -eq 0 ] ; then
+        echo "$usagestr" 1>&2
     fi
     exit 1
 fi
 arglist=("$@")
-cd "$workdir"
+cd "$workdir" || exit 1
 
 # Given a file name and file size, return the expected tar header + data size.
 declare -A -x header_size_cache
@@ -75,7 +73,7 @@ function get_tar_size () {
         header_bytes=512
     fi
     local size="$2"
-    (( total_size = (($header_bytes + $size + 511)/512)*512 ))
+    (( total_size = ((header_bytes + size + 511)/512)*512 ))
     echo $total_size
 }
 
@@ -96,7 +94,7 @@ function seed_traversal () {
         done
     fi
     if [ "$listfile" ] ; then
-        while read arg ; do
+        while read -r arg ; do
             circle_enqueue "$arg"
         done < "$listfile"
     fi
@@ -114,7 +112,7 @@ function traverse_tree () {
         local dname="$fname"
         dnamelist+=("$dname")
         total_size=$(get_tar_size "$dname" 0)
-        (( local_dsize += $total_size ))
+        (( local_dsize += total_size ))
         header_size_cache["$dname"]=$total_size
         local dircontents=($(ls -A "$dname"))
         for cname in "${dircontents[@]}" ; do
@@ -125,12 +123,12 @@ function traverse_tree () {
 
     # Locally process a non-directrory.
     local fsize=0
-    if [ -f "$fname" -a ! -L "$fname" ] ; then
+    if [ -f "$fname" ] && [ ! -L "$fname" ] ; then
         fsize=$(stat -c%s "$fname")
     fi
     fname2size["$fname"]=$fsize
-    total_size=$(get_tar_size "$fname" $fsize)
-    (( local_fsize += $total_size ))
+    total_size=$(get_tar_size "$fname" "$fsize")
+    (( local_fsize += total_size ))
     header_size_cache["$fname"]=$(get_tar_size "$fname" 0)
 }
 
@@ -145,7 +143,7 @@ mpi_exscan $local_dsize local_doffset
 mpi_allreduce $local_dsize global_dsize
 local_foffset=0
 mpi_exscan $local_fsize local_foffset
-(( local_foffset += $global_dsize ))
+(( local_foffset += global_dsize ))
 
 # Define a function to enqueue tarring of each rank's set of
 # directories and files.  The message format is as follows:
@@ -156,7 +154,7 @@ mpi_exscan $local_fsize local_foffset
 #   - file/directory name
 function enqueue_tar_work () {
     # Enqueue directory work.  Directories always occupy a single segment.
-    local dname dsize total_size tsize
+    local dname total_size tsize
     local cumulative_doffset=$local_doffset
     for dname in "${dnamelist[@]}" ; do
         tsize=${header_size_cache["$dname"]}
@@ -171,15 +169,15 @@ function enqueue_tar_work () {
         tsize=$(get_tar_size "$fname" 0)
         fsize=${fname2size["$fname"]}
         segment=0
-        if [ $fsize -eq 0 ] ; then
+        if [ "$fsize" -eq 0 ] ; then
             circle_enqueue "$tsize$sep$fsize$sep$cumulative_foffset$sep$segment$sep$fname"
         else
-            for (( fofs=0; fofs<$fsize; fofs+=$maxblocksize )) ; do
+            for (( fofs=0; fofs<fsize; fofs+=maxblocksize )) ; do
                 circle_enqueue "$tsize$sep$fsize$sep$cumulative_foffset$sep$segment$sep$fname"
                 (( segment++ ))
             done
         fi
-        (( cumulative_foffset += $(get_tar_size "$fname" $fsize) ))
+        (( cumulative_foffset += $(get_tar_size "$fname" "$fsize") ))
     done
 }
 
@@ -188,37 +186,37 @@ function inject_tar_data () {
     # Determine what we need to do.
     local msg fields
     circle_dequeue msg
-    IFS="$sep" read -a fields <<< "$msg"
+    IFS="$sep" read -r -a fields <<< "$msg"
     local tsize="${fields[0]}"
     local size="${fields[1]}"
     local offset="${fields[2]}"
     local segment="${fields[3]}"
     local name="${fields[4]}"
     if [ $verbose = yes ] ; then
-        local nsegs=$(( ($size + $maxblocksize - 1)/$maxblocksize ))
+        local nsegs=$(( (size + maxblocksize - 1)/maxblocksize ))
         if [ $nsegs -eq 0 ] ; then
             nsegs=1
         fi
-        echo "$name (fragment $(($segment+1)) of $nsegs)"
+        echo "$name (fragment $((segment+1)) of $nsegs)"
     fi
 
     # Segment 0: Inject the tar header.
-    if [ $segment -eq 0 ] ; then
+    if [ "$segment" -eq 0 ] ; then
         tar --no-recursion -cf - "$name" | \
-            dd of="$tarfile" bs=$tsize count=1 oflag=seek_bytes seek=$offset conv=notrunc status=none
+            dd of="$tarfile" bs="$tsize" count=1 oflag=seek_bytes seek="$offset" conv=notrunc status=none
     fi
 
     # All segments: Inject up to one segment's worth of data.
-    if [ $size -gt 0 ] ; then
-        local seek_bytes=$(( $offset + $tsize + $segment*$maxblocksize ))
-        dd if="$name" of="$tarfile" bs=$maxblocksize count=1 skip=$segment oflag=seek_bytes seek=$seek_bytes conv=notrunc status=none
+    if [ "$size" -gt 0 ] ; then
+        local seek_bytes=$(( offset + tsize + segment*maxblocksize ))
+        dd if="$name" of="$tarfile" bs="$maxblocksize" count=1 skip="$segment" oflag=seek_bytes seek="$seek_bytes" conv=notrunc status=none
     fi
 
 }
 
 # Use Libcircle to include all specified files and directories in the
 # target tarball.
-if [ $rank -eq 0 ] ; then
+if [ "$rank" -eq 0 ] ; then
     rm -f "$tarfile"
 fi
 circle_set_options create_global
@@ -228,7 +226,7 @@ circle_begin
 
 # Pad the file to a multiple of the block size (512 bytes) and include
 # two all-zero EOF blocks.
-if [ $rank -eq 0 ] ; then
+if [ "$rank" -eq 0 ] ; then
     truncate --size=%512 "$tarfile"
     truncate --size=+1024 "$tarfile"
 fi
