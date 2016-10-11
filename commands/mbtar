@@ -212,7 +212,11 @@ function inject_tar_data () {
     if [ $size -gt $tsize ] ; then
         local seek_bytes=$(( $offset + $tsize + $segment*$maxblocksize ))
         dd if="$name" of="$tarfile" bs=$maxblocksize count=1 skip=$segment oflag=seek_bytes seek=$seek_bytes conv=notrunc status=none
+    elif [ $size -gt 0 ] ; then
+        local seek_bytes=$(( $offset + $tsize + $segment*$maxblocksize ))
+        dd if="$name" of="$tarfile" bs=$maxblocksize count=1 skip=$segment oflag=seek_bytes seek=$seek_bytes conv=notrunc status=none
     fi
+
 }
 
 # Use Libcircle to include all specified files and directories in the
