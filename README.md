@@ -2,7 +2,7 @@ MPI-Bash: Parallel scripting right from the Bourne-Again Shell (Bash)
 =====================================================================
 
 Introduction
-------------
+-----------
 
 Parallel, scientific applications running on massively parallel supercomputers commonly produce large numbers of large data files.  While parallel filesystems improve the performance of file generation, postprocessing activities such as archiving and compressing the data are often run sequentially (and therefore slowly), squandering the supercomputer's vast performance.  Consequently, data that take hours to generate may take days to postprocess.
 
@@ -55,7 +55,7 @@ If MPI-Bash is run on a large number of nodes, a parallel filesystem (e.g., [Lus
 Documentation
 -------------
 
-MPI-Bash documentation is available on the [MPI-Bash wiki](https://github.com/losalamos/MPI-Bash/wiki).
+MPI-Bash documentation is available on the [MPI-Bash wiki](https://github.com/lanl/MPI-Bash/wiki).
 
 Copyright and license
 ---------------------
