@@ -11,11 +11,6 @@ mpi_init
 mpi_comm_rank rank
 mpi_comm_size nranks
 
-# Define the maximum number of bytes to read/write at once.  This
-# should be large enough to get good performance from a parallel
-# filesystem but not so large that it thrashes the TLB.
-maxblocksize=104857600
-
 # Parse the command line.  We accept only a few, specific, xz options.
 # The rest don't make sense in the context of this script.
 usagestr="Usage: $0 [xz options] <file>..."
@@ -47,7 +42,7 @@ while getopts kfS:C:0123456789eM:qvQ optname ; do
 done
 shift $((OPTIND-1))
 if [ $# -eq 0 ] ; then
-    echo $usagestr 1>&2
+    echo "$usagestr" 1>&2
     exit 1
 fi
 
@@ -58,7 +53,7 @@ while [ $# -ge 1 ] ; do
     origfile="$1"
     compfile="${origfile}${suffix}"
     shift
-    if [ $rank -eq 0 ] ; then
+    if [ "$rank" -eq 0 ] ; then
         # Rank 0 -- tell everyone the file size or "skip" to skip this file.
         file_ok=yes
         if [ ! -e "$origfile" ] ; then
@@ -70,13 +65,13 @@ while [ $# -ge 1 ] ; do
         elif [ ! -r "$origfile" ] ; then
             echo "${0}: Input file $origfile is not readble" 1>&2
             file_ok=no
-        elif [ -e "$compfile" -a "$force" = no ] ; then
+        elif [ -e "$compfile" ] && [ "$force" = no ] ; then
             echo "${0}: Output file $compfile already exists" 1>&2
             file_ok=no
         fi
         if [ "$file_ok" = yes ] ; then
             origsize=$(stat -c%s "$origfile")
-            mpi_bcast $origsize msg
+            mpi_bcast "$origsize" msg
         else
             mpi_bcast skip msg
             continue
@@ -84,15 +79,15 @@ while [ $# -ge 1 ] ; do
     else
         # Not rank 0 -- await a filesize or "skip" to skip to the next file.
         mpi_bcast origsize
-        if [ $origsize = skip ] ; then
+        if [ "$origsize" = skip ] ; then
             continue
         fi
     fi
 
     # Split the input file into nranks pieces.
-    let lastrank=($nranks - 1)
-    let blocksize=($origsize / $nranks)
-    let rank_offset=($rank * $blocksize)
+    lastrank=$((nranks - 1))
+    blocksize=$((origsize / nranks))
+    rank_offset=$((rank * blocksize))
     rankfile="${origfile}.${rank}"
     if [ $rank -eq $lastrank ] ; then
         # The last rank copies exactly to the end of the file, making
@@ -111,20 +106,20 @@ while [ $# -ge 1 ] ; do
     compfile="${origfile}${suffix}"
     rankcompfile="$rankfile.xz"
     rankcompsize=$(stat -c%s "$rankcompfile")
-    mpi_exscan $rankcompsize rank_offset
+    mpi_exscan "$rankcompsize" rank_offset
     if [ $rank -eq 0 ] ; then
         rank_offset=0
         rm -f "$compfile"
     fi
     mpi_barrier
-    dd status=none conv=notrunc iflag=count_bytes oflag=seek_bytes seek=$rank_offset bs=$blocksize count=$rankcompsize if="$rankcompfile" of="$compfile"
+    dd status=none conv=notrunc iflag=count_bytes oflag=seek_bytes seek=$rank_offset bs=$blocksize count="$rankcompsize" if="$rankcompfile" of="$compfile"
 
     # Delete all of the per-rank compressed files.
     rm -f "$rankcompfile"
 
     # Delete the original file.
     mpi_barrier
-    if [ "$keep" = no -a $rank -eq 0 ] ; then
+    if [ "$keep" = no ] && [ $rank -eq 0 ] ; then
         rm -f "$origfile"
     fi
 done

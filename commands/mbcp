@@ -26,7 +26,7 @@ sep=$'\t'
 
 # Define a function to issue an warning message.
 function warn () {
-    if [ "$1" = "*" -o $rank -eq "$1" ] ; then
+    if [ "$1" = "*" ] || [ "$rank" -eq "$1" ] ; then
 	shift
 	echo "${progname}: $*" 1>&2
     fi
@@ -78,8 +78,8 @@ while getopts rvnPpa optname ; do
 done
 shift $((OPTIND-1))
 if [ $# -lt 2 ] ; then
-    if [ $rank -eq 0 ] ; then
-	echo $usagestr 1>&2
+    if [ "$rank" -eq 0 ] ; then
+	echo "$usagestr" 1>&2
     fi
     exit 1
 fi
@@ -88,7 +88,7 @@ unset source_names[${#source_names[@]}-1]
 
 # Determine if we're copying one file to another or one or more files
 # into a directory.
-target_name="${@: -1}"
+target_name="${*: -1}"
 if [ ${#source_names[@]} -eq 1 ] ; then
     if [ -d "${source_names[0]}" ] ; then
 	source_type=dir
@@ -118,7 +118,7 @@ case $copy_type in
 
     dir-to-file)
 	if [ $recursive = yes ] ; then
-	    abend 0 "cannot overwrite non-directory '$target_name' with directory '${source_name[0]}'"
+	    abend 0 "cannot overwrite non-directory '$target_name' with directory '${source_names[0]}'"
 	fi
 	;;
 
@@ -146,35 +146,36 @@ function enqueue_segments () {
     fi
 
     # Analyze the input file.
-    local insize=$(stat -L -c%s "$infile")
+    local insize
+    insize=$(stat -L -c%s "$infile")
     if [ $? -ne 0 ] ; then
 	return
     fi
     local segments
-    if [ $insize -eq 0 ] ; then
+    if [ "$insize" -eq 0 ] ; then
 	segments=1
     else
-	(( segments = ($insize + $maxblocksize - 1)/$maxblocksize ))
+	(( segments = (insize + maxblocksize - 1)/maxblocksize ))
     fi
 
     # Delete the output file.  Otherwise, we might overwrite a piece
     # of a large, existing target but never truncate it to its new
     # size.
-    if [ ! -d "$infile" -a -d "$outfile" ] ; then
+    if [ ! -d "$infile" ] && [ -d "$outfile" ] ; then
 	warn "*" "cannot overwrite directory ‘$outfile’ with non-directory '$infile'" 1>&2
 	return
-    elif [ -d "$infile" -a -e "$outfile" -a ! -d "$outfile" ] ; then
+    elif [ -d "$infile" ] && [ -e "$outfile" ] && [ ! -d "$outfile" ] ; then
 	warn "*" "cannot overwrite non-directory ‘$outfile’ with directory '$infile'" 1>&2
 	return
     fi
-    if [ $clobber = no -a -e "$outfile" ] ; then
+    if [ $clobber = no ] && [ -e "$outfile" ] ; then
 	return
     fi
     rm -rf "$outfile"
 
     # Enqueue $segments segments of work.
     local ofs
-    for (( ofs=0; ofs < $insize; ofs += $maxblocksize )) ; do
+    for (( ofs=0; ofs < insize; ofs += maxblocksize )) ; do
 	circle_enqueue "$ofs$sep$segments$sep$insize$sep$infile$sep$outfile"
     done
 }
@@ -183,7 +184,7 @@ function enqueue_segments () {
 function initialize_copying () {
     local infile outfile
     for infile in "${source_names[@]}" ; do
-	if [ -d "$infile" -a $recursive = no ] ; then
+	if [ -d "$infile" ] && [ $recursive = no ] ; then
 	    warn 0 "omitting directory '$infile'"
 	else
 	    if [ $copy_type = dir-to-dir ] ; then
@@ -204,7 +205,7 @@ function copy_piece () {
     # Dequeue and parse a work item.
     circle_dequeue work_item
     local fields
-    IFS="$sep" read -a fields <<< "$work_item"
+    IFS="$sep" read -r -a fields <<< "$work_item"
     local ofs="${fields[0]}"
     local nsegs="${fields[1]}"
     local size="${fields[2]}"
@@ -213,13 +214,13 @@ function copy_piece () {
 
     # Complain if the input and output file types don't match.
     if [ -e "$outfile" ] ; then
-	if [ -d "$infile" -a ! -d "$outfile" ] ; then
-	    if [ $ofs -eq 0 ] ; then
+	if [ -d "$infile" ] && [ ! -d "$outfile" ] ; then
+	    if [ "$ofs" -eq 0 ] ; then
 		warn "*" "${progname}: cannot overwrite non-directory '$outfile' with directory '$infile'"
 	    fi
 	    return
-	elif [ ! -d "$infile" -a -d "$outfile" ] ; then
-	    if [ $ofs -eq 0 ] ; then
+	elif [ ! -d "$infile" ] && [ -d "$outfile" ] ; then
+	    if [ "$ofs" -eq 0 ] ; then
 		warn "*" "${progname}: cannot overwrite directory '$outfile' with non-directory '$infile'"
 	    fi
 	    return
@@ -246,7 +247,7 @@ function copy_piece () {
 
     # The input file is not a directory.  If it's a symbolic link and
     # we were asked to preserve links, copy the link.
-    if [ -L "$infile" -a $dereference = no ] ; then
+    if [ -L "$infile" ] && [ $dereference = no ] ; then
 	if [ $verbosity -ge 1 ] ; then
 	    echo "'$infile' -> '$outfile' (symbolic link)"
 	fi
@@ -257,16 +258,16 @@ function copy_piece () {
     # The input file is not a directory.  Copy whatever segment we
     # were assigned.
     local blocksize=$size
-    if [ $blocksize -gt $maxblocksize ] ; then
+    if [ "$blocksize" -gt "$maxblocksize" ] ; then
 	blocksize=$maxblocksize
     fi
     if [ $verbosity -ge 1 ] ; then
-	(( seg = $ofs/$maxblocksize + 1 ))
+	(( seg = ofs/maxblocksize + 1 ))
 	echo "'$infile' -> '$outfile' (fragment $seg of $nsegs)"
     fi
     infile=$(readlink -e "$infile")
-    dd status=none conv=notrunc bs=$blocksize iflag=skip_bytes,count_bytes skip=$ofs count=$blocksize oflag=seek_bytes seek=$ofs if="$infile" of="$outfile"
-    if [ $ofs -eq 0 ] ; then
+    dd status=none conv=notrunc bs=$blocksize iflag=skip_bytes,count_bytes skip="$ofs" count="$blocksize" oflag=seek_bytes seek="$ofs" if="$infile" of="$outfile"
+    if [ "$ofs" -eq 0 ] ; then
 	maybe_copy_attrs "$infile" "$outfile"
     fi
 }
