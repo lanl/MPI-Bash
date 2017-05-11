@@ -89,7 +89,7 @@ while [ $# -ge 1 ] ; do
     blocksize=$((origsize / nranks))
     rank_offset=$((rank * blocksize))
     rankfile="${origfile}.${rank}"
-    if [ $rank -eq $lastrank ] ; then
+    if [ "$rank" -eq "$lastrank" ] ; then
         # The last rank copies exactly to the end of the file, making
         # up for any "lost" bytes caused by rounding down blocksize to
         # the nearest integer.
@@ -100,14 +100,14 @@ while [ $# -ge 1 ] ; do
     fi
 
     # Compress each piece.
-    xz -f "${xzopts[@]}" "$rankfile"
+    ${XZ_COMMAND:-xz} -f "${xzopts[@]}" "$rankfile"
 
     # Concatenate the compressed pieces.
     compfile="${origfile}${suffix}"
     rankcompfile="$rankfile.xz"
     rankcompsize=$(stat -c%s "$rankcompfile")
     mpi_exscan "$rankcompsize" rank_offset
-    if [ $rank -eq 0 ] ; then
+    if [ "$rank" -eq 0 ] ; then
         rank_offset=0
         rm -f "$compfile"
     fi
@@ -119,7 +119,7 @@ while [ $# -ge 1 ] ; do
 
     # Delete the original file.
     mpi_barrier
-    if [ "$keep" = no ] && [ $rank -eq 0 ] ; then
+    if [ "$keep" = no ] && [ "$rank" -eq 0 ] ; then
         rm -f "$origfile"
     fi
 done
