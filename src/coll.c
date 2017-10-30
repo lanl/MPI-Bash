@@ -124,6 +124,49 @@ DEFINE_BUILTIN(mpi_bcast, "mpi_bcast [message] name");
 /* Define a reduction-type function (allreduce, scan, exscan, etc.). */
 typedef int (*reduction_func_t)(void *, void *, int, MPI_Datatype, MPI_Op, MPI_Comm);
 
+/* Parse an operation name into an MPI_Op.  Return 1 on success, 0 on
+ * failure. */
+static int
+parse_operation (char *name, MPI_Op *op)
+{
+  /* Define a mapping from operator names to MPI_Op values. */
+  typedef struct {
+    char *name;        /* Operation name (e.g., "sum") */
+    MPI_Op value;      /* Operation value (e.g., MPI_SUM) */
+  } opname2value_t;
+  static opname2value_t oplist[] = {
+    {"max",    MPI_MAX},
+    {"min",    MPI_MIN},
+    {"sum",    MPI_SUM},
+    {"prod",   MPI_PROD},
+    {"land",   MPI_LAND},
+    {"band",   MPI_BAND},
+    {"lor",    MPI_LOR},
+    {"bor",    MPI_BOR},
+    {"lxor",   MPI_LXOR},
+    {"bxor",   MPI_BXOR},
+    {"maxloc", MPI_MAXLOC},
+    {"minloc", MPI_MINLOC}
+  };
+  size_t i;
+
+  for (i = 0; i < sizeof(oplist)/sizeof(opname2value_t); i++)
+    if (!strcmp(name, oplist[i].name))
+      {
+        *op = oplist[i].value;
+        if (i > 0)
+          {
+            /* As a performance optimization, bubble up the value we
+             * just found. */
+            opname2value_t prev = oplist[i - 1];
+            oplist[i - 1] = oplist[i];
+            oplist[i] = prev;
+          }
+        return 1;
+      }
+  return 0;
+}
+
 /* Perform any reduction-type operation (allreduce, scan, exscan, etc.). */
 static int
 reduction_like (WORD_LIST *list, char *funcname, reduction_func_t func)
