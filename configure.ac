@@ -25,6 +25,13 @@ AC_ARG_WITH([bashdir],
     [directory containing preconfigured bash sources])],
   [bashdir="$withval"],
   [bashdir=no])
+if test "x$PKG_CONFIG" != xno ; then
+  PKG_CHECK_EXISTS([bash], [
+    if test "x$bashdir" = xno ; then
+      bashdir=`$PKG_CONFIG --variable=headersdir bash`
+    fi
+  ])
+fi
 AC_CACHE_CHECK([for a bash source tree],
   [ax_cv_dir_bash_sources], [
 ax_cv_dir_bash_sources=no
