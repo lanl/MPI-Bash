@@ -171,6 +171,8 @@ circle_init_builtin (WORD_LIST *list)
   for (func = all_circle_builtins; *func; func++)
     if (load_circle_builtin(*func) != EXECUTION_SUCCESS)
       return EXECUTION_FAILURE;
+
+  return EXECUTION_SUCCESS;
 }
 
 /* Define the documentation for the circle_init builtin. */
