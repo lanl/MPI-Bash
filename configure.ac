@@ -25,25 +25,25 @@ AC_ARG_WITH([bashdir],
     [directory containing preconfigured bash sources])],
   [bashdir="$withval"],
   [bashdir=no])
-if test "x$PKG_CONFIG" != xno ; then
-  PKG_CHECK_EXISTS([bash], [
-    if test "x$bashdir" = xno ; then
-      bashdir=`$PKG_CONFIG --variable=headersdir bash`
-    fi
-  ])
-fi
-AC_CACHE_CHECK([for a bash source tree],
+AC_CACHE_CHECK([for a directory containing bash header files],
   [ax_cv_dir_bash_sources], [
 ax_cv_dir_bash_sources=no
 if test "x$bashdir" = xno ; then
-  # --with-bashdir was not specified; look in the current directory.
+  # --with-bashdir was not specified; look in the current directory for a
+  # bash source directory.
   if test `echo bash*` != "bash*" ; then
     for dname in `ls -d bash* | sort -r` ; do
       if test -d "$dname" ; then
-	ax_cv_dir_bash_sources="`readlink -f $dname`"
-	break
+        ax_cv_dir_bash_sources="`readlink -f $dname`"
+        break
       fi
     done
+  # bash was not found in the current directory.  See if pkg-config can
+  # find the bash headers.
+  elif test "x$PKG_CONFIG" != xno ; then
+    PKG_CHECK_EXISTS([bash], [
+      ax_cv_dir_bash_sources=`$PKG_CONFIG --variable=headersdir bash`
+    ])
   fi
 else
   # --with-bashdir was specified; ensure it's valid.
