@@ -5,7 +5,7 @@
 
 # Initialize the GNU Autotools.
 AC_PREREQ([2.69])
-AC_INIT([mpibash], [1.2], [pakin@lanl.gov])
+AC_INIT([mpibash], [1.3], [pakin@lanl.gov])
 AC_CONFIG_SRCDIR([src/init.c])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 AM_PROG_AR
