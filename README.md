@@ -13,24 +13,7 @@ MPI-Bash makes it easy to parallelize Bash scripts that run a set of Linux comma
 Installation
 ------------
 
-1. Download the [Bash source code](http://www.gnu.org/software/bash/).  As of this writing, MPI-Bash is being tested primarily with Bash v4.3.  On a Debian Linux system (or derivative such as Ubuntu), the following is a convenient approach:
-
-        apt-get source bash
-
-2. Build Bash as normal.  There is no need to install it if you already have Bash on your system.
-
-        ./configure
-        make
-
-3. Go into the MPI-Bash source directory.  If you're building MPI-Bash from a Git clone rather than a release you'll have to generate the MPI-Bash `configure` script:
-
-        autoreconf -fvi
-
-4. Configure, build, and install MPI-Bash, pointing it to your Bash source tree:
-
-        ./configure --with-bashdir=$HOME/bash-4.3.30 --prefix=$HOME/mpibash CC=mpicc
-        make
-        make install
+[Installation instructions](https://github.com/lanl/MPI-Bash/blob/master/INSTALL.md) are provided in a separate file.
 
 Usage
 -----
