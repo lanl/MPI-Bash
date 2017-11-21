@@ -33,7 +33,9 @@ The script can then be run like any other MPI program, such as via a command lik
 
     mpirun -np 16 ./my-script.sh
 
-If MPI-Bash is run on a large number of nodes, a parallel filesystem (e.g., [Lustre](http://lustre.opensfs.org/)) is essential for performance. Otherwise, most of the parallelism that a script exposes will be lost as file operations are serialized during writes to a non-parallel filesystem.
+If `MPI_Init` fails, it may because your system is unable to `mpirun` one script (`mpibash`) that itself runs another script (your program) that dynamically loads the MPI libraries.  See if the workaround discussed in [issue #6](https://github.com/lanl/MPI-Bash/issues/6) applies in your situation.
+
+When running MPI-Bash on a large number of nodes, a parallel filesystem (e.g., [Lustre](http://lustre.opensfs.org/)) is essential for performance. Otherwise, most of the parallelism that a script exposes will be lost as file operations are serialized during writes to a non-parallel filesystem.
 
 Documentation
 -------------
