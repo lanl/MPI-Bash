@@ -3,7 +3,9 @@ Installing MPI-Bash
 
 MPI-Bash has been packaged for a few Linux distributions (cf. [issue #9](https://github.com/lanl/MPI-Bash/issues/9)) so you may be able to install it with your distribution's package manager.  If not, then continue reading.
 
-MPI-Bash requires the Bash header files.  On Debian/Ubuntu, these are provided by the [`bash-builtins` package](https://packages.debian.org/search?searchon=names&keywords=bash-builtins), in which case you can follow Option 1 below.  Alternatively, the Bash header files can be found in the Bash source code (Option 2).
+MPI-Bash is implemented as a Bash plugin.  To date, it has been tested only with Bash versions 4.3.*x* and 4.4.*x*, and there is indication that MPI-Bash does not work with Bash v4.2 or earlier ([issue #10](https://github.com/lanl/MPI-Bash/issues/10)).
+
+To install MPI-Bash you will need the Bash header files.  On Debian/Ubuntu these are provided by the [`bash-builtins` package](https://packages.debian.org/search?searchon=names&keywords=bash-builtins).  If you have `bash-builtins`, follow Option 1 below.  Alternatively, the Bash header files can be found in the Bash source code, as discussed in Option 2.
 
 Option 1: Package-provided Bash header files
 --------------------------------------------
@@ -27,7 +29,7 @@ Option 1: Package-provided Bash header files
 Option 2: Bash source code provided Bash header files
 -----------------------------------------------------
 
-1. Download the [Bash source code](http://www.gnu.org/software/bash/).  As of this writing, MPI-Bash is being tested primarily with Bash v4.*x*.  On a Debian Linux system (or derivative such as Ubuntu), the following is a convenient approach:
+1. Download the [Bash source code](http://www.gnu.org/software/bash/).  On a Debian Linux system (or derivative such as Ubuntu), the following is a convenient approach:
 
         apt-get source bash
 
