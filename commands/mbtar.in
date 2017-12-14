@@ -1,4 +1,4 @@
-#! /usr/bin/env mpibash
+#! /usr/bin/env mpibash@program_suffix@
 
 ################################################
 # Quickly tar up a set of files using MPI-Bash #

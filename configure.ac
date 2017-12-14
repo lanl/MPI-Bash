@@ -187,7 +187,10 @@ if test "x$ax_cv_link_libcircle" != xyes ; then
   AC_MSG_WARN([Building MPI-Bash without Libcircle support])
 fi
 
+# Honor the program suffix when generating commands/mb*.
+AC_SUBST([program_suffix])
+
 # Generate Makefiles and other files.
 AC_CONFIG_FILES([Makefile src/Makefile commands/Makefile examples/Makefile])
-AC_CONFIG_FILES([mpibash])
+AC_CONFIG_FILES([mpibash commands/mbcp commands/mbtar commands/mbxz])
 AC_OUTPUT

@@ -1,4 +1,4 @@
-#! /usr/bin/env mpibash
+#! /usr/bin/env mpibash@program_suffix@
 
 #######################################################
 # Quickly compress a large file using MPI-Bash and xz #
