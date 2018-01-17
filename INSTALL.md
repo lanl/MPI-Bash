@@ -1,7 +1,7 @@
 Installing MPI-Bash
 ===================
 
-MPI-Bash has been packaged for a few Linux distributions (cf. [issue #9](https://github.com/lanl/MPI-Bash/issues/9)) so you may be able to install it with your distribution's package manager.  If not, then continue reading.
+MPI-Bash has been packaged for a few Linux distributions (e.g. [Gentoo](https://packages.gentoo.org/packages/app-shells/mpibash), [Fedora 27 and higher](https://src.fedoraproject.org/rpms/mpibash) and [OpenSuse](https://build.opensuse.org/package/show/science:HPC/mpibash), cf. [issue #9](https://github.com/lanl/MPI-Bash/issues/9)) so you may be able to install it with your distribution's package manager.  If not, then continue reading.
 
 MPI-Bash is implemented as a Bash plugin.  To date, it has been tested only with Bash versions 4.3.*x* and 4.4.*x*, and there is indication that MPI-Bash does not work with Bash v4.2 or earlier ([issue #10](https://github.com/lanl/MPI-Bash/issues/10)).
 
