@@ -5,6 +5,9 @@ aclocal.m4
 ar-lib
 autom4te.cache/
 autoscan.log
+commands/mbcp
+commands/mbtar
+commands/mbxz
 compile
 config.guess
 config.log
