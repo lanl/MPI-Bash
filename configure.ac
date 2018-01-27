@@ -188,6 +188,9 @@ if test "x$ax_cv_link_libcircle" != xyes ; then
 fi
 
 # Honor the program suffix when generating commands/mb*.
+if test "x$program_suffix" = xNONE ; then
+  program_suffix=""
+fi
 AC_SUBST([program_suffix])
 
 # Generate Makefiles and other files.
