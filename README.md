@@ -45,7 +45,7 @@ MPI-Bash documentation is available on the [MPI-Bash wiki](https://github.com/la
 Copyright and license
 ---------------------
 
-Los Alamos National Security, LLC (LANS) owns the copyright to MPI-Bash, which it identifies internally as LA-CC-14-101.  MPI-Bash is licensed under the [GNU General Public License](http://www.gnu.org/licenses/gpl-3.0.html), version 3.
+Triad National Security, LLC (Triad) owns the copyright to MPI-Bash, which it identifies internally as LA-CC-14-101.  MPI-Bash is licensed under the [GNU General Public License](http://www.gnu.org/licenses/gpl-3.0.html), version 3.
 
 ![GPLv3 logo](https://gnu.org/graphics/gplv3-127x51.png "GNU General Public License, version 3")
 
