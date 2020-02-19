@@ -77,7 +77,7 @@ mpi_init_builtin (WORD_LIST *list)
 
   /* Make MPI errors return instead of crash.  Also, store our rank
    * and number of ranks. */
-  MPI_Errhandler_set (MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+  MPI_Comm_set_errhandler (MPI_COMM_WORLD, MPI_ERRORS_RETURN);
   MPI_Comm_rank (MPI_COMM_WORLD, &mpibash_rank);
   MPI_Comm_size (MPI_COMM_WORLD, &mpibash_num_ranks);
 
