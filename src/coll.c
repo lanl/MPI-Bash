@@ -122,7 +122,7 @@ static char *mpi_bcast_doc[] = {
 DEFINE_BUILTIN(mpi_bcast, "mpi_bcast [message] name");
 
 /* Define a reduction-type function (allreduce, scan, exscan, etc.). */
-typedef int (*reduction_func_t)(void *, void *, int, MPI_Datatype, MPI_Op, MPI_Comm);
+typedef int (*reduction_func_t)(const void *, void *, int, MPI_Datatype, MPI_Op, MPI_Comm);
 
 /* Parse an operation name into an MPI_Op.  Return 1 on success, 0 on
  * failure. */
@@ -213,25 +213,25 @@ reduction_like (WORD_LIST *list, char *funcname, reduction_func_t func)
   /* Parse the target variable, which must not be read-only. */
   YES_ARGS(list);
   varname = list->word->word;
-  if (mpibash_rank != 0 || func != MPI_Exscan)
+  if (mpibash_rank != 0 || (void *)func != (void *)MPI_Exscan)
     REQUIRE_WRITABLE(varname);
   list = list->next;
   no_args(list);
 
   /* Perform the reduction operation.  Bind the given array variable
    * to the result and, for minloc/maxloc, the associated rank. */
-  if (mpibash_rank != 0 || func != MPI_Exscan) {
+  if (mpibash_rank != 0 || (void *)func != (void *)MPI_Exscan) {
     bind_array_variable(varname, 0, "", 0);
     bind_array_variable(varname, 1, "", 0);
   }
   if (operation == MPI_MINLOC || operation == MPI_MAXLOC) {
     MPI_TRY(func(&number, &result, 1, MPI_LONG_INT, operation, MPI_COMM_WORLD));
-    if (mpibash_rank != 0 || func != MPI_Exscan)
+    if (mpibash_rank != 0 || (void *)func != (void *)MPI_Exscan)
       mpibash_bind_array_variable_number(varname, 1, result.rank, 0);
   }
   else
     MPI_TRY(func(&number.value, &result.value, 1, MPI_LONG, operation, MPI_COMM_WORLD));
-  if (mpibash_rank != 0 || func != MPI_Exscan)
+  if (mpibash_rank != 0 || (void *)func != (void *)MPI_Exscan)
     mpibash_bind_array_variable_number(varname, 0, result.value, 0);
   return EXECUTION_SUCCESS;
 }
