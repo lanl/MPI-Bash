@@ -5,6 +5,7 @@
  *********************************************************/
 
 #include "circlebash.h"
+#include "execute_cmd.h"
 
 /* Define our library-local variables in an ad hoc namespace. */
 SHELL_VAR *circlebash_create_func = NULL;   /* User-defined callback function for CIRCLE_cb_create. */
