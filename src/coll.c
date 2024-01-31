@@ -34,7 +34,6 @@ DEFINE_BUILTIN(mpi_barrier, "mpi_barrier");
 static int
 mpi_bcast_builtin (WORD_LIST *list)
 {
-  char *word;                   /* One argument */
   int root;                     /* MPI root rank */
   char *root_message;           /* Message to broadcast */
   int msglen;                   /* Length in bytes of the above (including the NULL byte) */
@@ -179,7 +178,6 @@ reduction_like (WORD_LIST *list, char *funcname, reduction_func_t func)
   MPI_Op operation = MPI_SUM;   /* Operation to perform */
   char *varname;                /* Name of the variable to bind the results to */
   intmax_t n;
-  int i;
 
   /* Parse "-O OPERATION" (optional), where OPERATION is a reduction
    * operation. */

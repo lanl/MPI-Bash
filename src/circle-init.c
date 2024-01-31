@@ -125,9 +125,6 @@ static int
 load_circle_builtin (char *name)
 {
   static char *circlebash_so = NULL;   /* Path to circlebash.so */
-  static sh_builtin_func_t *enable_func = NULL;   /* Pointer to the enable function */
-  char *enable_args[4];
-  WORD_LIST *enable_list;
 
   /* Find our .so file name. */
   if (circlebash_so == NULL) {

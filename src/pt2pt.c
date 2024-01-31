@@ -86,7 +86,6 @@ mpi_recv_builtin (WORD_LIST *list)
 {
   char *word;                   /* One argument */
   intmax_t source_rank;         /* MPI source rank */
-  char *endptr;                 /* Used for parsing strings into numbers */
   MPI_Status status;            /* Status of an MPI operation */
   int count;                    /* Message length in bytes */
   intmax_t tag = 0;             /* Message tag to use */
@@ -109,7 +108,6 @@ mpi_recv_builtin (WORD_LIST *list)
         break;
 
       default:
-        sh_invalidopt(word);
         builtin_usage();
         return (EX_USAGE);
     }
@@ -140,7 +138,7 @@ mpi_recv_builtin (WORD_LIST *list)
    * be, we first probe to get the length. */
   MPI_TRY(MPI_Probe((int) source_rank, (int) tag, MPI_COMM_WORLD, &status));
   MPI_TRY(MPI_Get_count(&status, MPI_BYTE, &count));
-  if (alloced < count) {
+  if (alloced < (size_t)count) {
     message = xrealloc(message, count);
     alloced = count;
   }

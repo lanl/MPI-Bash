@@ -32,9 +32,6 @@ static int
 load_mpi_builtin (char *name)
 {
   static char *mpibash_so = NULL;   /* Path to mpibash.so */
-  static sh_builtin_func_t *enable_func = NULL;   /* Pointer to the enable function */
-  char *enable_args[4];
-  WORD_LIST *enable_list;
 
   /* Find our .so file name. */
   if (mpibash_so == NULL) {
