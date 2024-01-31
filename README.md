@@ -26,14 +26,15 @@ To use MPI-Bash functions, create an executable Bash script that begins with the
 
     enable -f mpibash.so mpi_init
     mpi_init
+    mpi_finalize
 
 The `enable` line loads and enables the `mpi_init` builtin, and the subsequent line invokes it.  Besides MPI initialization, `mpi_init` additionally loads and enables all of the other MPI-Bash builtins.
 
 The script can then be run like any other MPI program, such as via a command like the following:
 
-    mpirun -np 16 ./my-script.sh
+    mpiexec -n 16 ./my-script.sh
 
-If `MPI_Init` fails, it may because your system is unable to `mpirun` one script (`mpibash`) that itself runs another script (your program) that dynamically loads the MPI libraries.  See if the workaround discussed in [issue #6](https://github.com/lanl/MPI-Bash/issues/6) applies in your situation.
+If `MPI_Init` fails, it may because your system is unable to `mpiexec` one script (`mpibash`) that itself runs another script (your program) that dynamically loads the MPI libraries.  See if the workaround discussed in [issue #6](https://github.com/lanl/MPI-Bash/issues/6) applies in your situation.
 
 When running MPI-Bash on a large number of nodes, a parallel filesystem (e.g., [Lustre](http://lustre.opensfs.org/)) is essential for performance. Otherwise, most of the parallelism that a script exposes will be lost as file operations are serialized during writes to a non-parallel filesystem.
 
