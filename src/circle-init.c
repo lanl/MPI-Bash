@@ -85,11 +85,7 @@ internal_reduce_init_func (void)
 /* Invoke the user-defined reduction callback function
  * (circlebash_reduce_op_func). */
 static void
-internal_reduce_op_func (buf1, size1, buf2, size2)
-     const void *buf1;
-     size_t size1;
-     const void *buf2;
-     size_t size2;
+internal_reduce_op_func (const void *buf1, size_t size1, const void *buf2, size_t size2)
 {
   WORD_LIST *funcargs;
 
