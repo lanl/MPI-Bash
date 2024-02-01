@@ -69,8 +69,15 @@ AC_CHECK_HEADERS([pathnames.h], ,
 AC_CHECK_HEADERS([shell.h bashgetopt.h], ,
   [AC_MSG_ERROR([Cannot find bash header $ac_header under $bashdir.])],
   [
-#include <config.h>
-#include <builtins.h>
+#include "config.h"
+#include "builtins.h"
+  ])
+AC_CHECK_HEADERS([execute_cmd.h], ,
+  [AC_MSG_ERROR([Cannot find bash header $ac_header under $bashdir.])],
+  [
+#include "config.h"
+#include "builtins.h"
+#include "shell.h"
   ])
 CPPFLAGS="$orig_CPPFLAGS"
 
