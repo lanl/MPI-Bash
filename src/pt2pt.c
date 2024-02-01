@@ -139,7 +139,7 @@ mpi_recv_builtin (WORD_LIST *list)
   MPI_TRY(MPI_Probe((int) source_rank, (int) tag, MPI_COMM_WORLD, &status));
   MPI_TRY(MPI_Get_count(&status, MPI_BYTE, &count));
   if (alloced < (size_t)count) {
-    message = xrealloc(message, count);
+    message = realloc(message, count);
     alloced = count;
   }
   MPI_TRY(MPI_Recv(message, count, MPI_BYTE, status.MPI_SOURCE, status.MPI_TAG,

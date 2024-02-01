@@ -64,7 +64,7 @@ mpi_bcast_builtin (WORD_LIST *list)
 
   /* Acquire global agreement on the root and the message size. */
   if (all_lengths == NULL)
-    all_lengths = xmalloc(mpibash_num_ranks * sizeof(int));
+    all_lengths = malloc(mpibash_num_ranks * sizeof(int));
   MPI_TRY(MPI_Allgather(&msglen, 1, MPI_INT, all_lengths, 1, MPI_INT, MPI_COMM_WORLD));
   root = -1;
   for (i = 0; i < mpibash_num_ranks; i++) {
@@ -90,7 +90,7 @@ mpi_bcast_builtin (WORD_LIST *list)
   }
   else {
     if (alloced < msglen) {
-      message = xrealloc(message, msglen);
+      message = realloc(message, msglen);
       alloced = msglen;
     }
     MPI_TRY(MPI_Bcast(message, msglen, MPI_BYTE, root, MPI_COMM_WORLD));
