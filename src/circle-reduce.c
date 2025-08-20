@@ -102,7 +102,11 @@ circle_reduce_builtin (WORD_LIST *list)
   YES_ARGS(list);
   work = list->word->word;
   list = list->next;
+#if DEFAULT_COMPAT_LEVEL >= 53
+  no_args(list, 0);
+#else
   no_args(list);
+#endif
 
   /* Complain if we're not within a proper callback function. */
   if (!circlebash_within_reduction) {

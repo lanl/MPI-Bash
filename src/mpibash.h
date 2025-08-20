@@ -12,6 +12,7 @@
 #include "common.h"
 #include "bashintl.h"
 #include "bashgetopt.h"
+#include "version.h"
 
 #include <stdio.h>
 #include <string.h>

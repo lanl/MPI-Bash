@@ -62,7 +62,11 @@ DEFINE_BUILTIN(circle_cb_process, "circle_cb_process [func]");
 static int
 circle_begin_builtin (WORD_LIST *list)
 {
+#if DEFAULT_COMPAT_LEVEL >= 53
+  no_args(list, 0);
+#else
   no_args(list);
+#endif
   CIRCLE_begin();
   return EXECUTION_SUCCESS;
 }
@@ -89,7 +93,11 @@ circle_enqueue_builtin (WORD_LIST *list)
   YES_ARGS(list);
   work = list->word->word;
   list = list->next;
+#if DEFAULT_COMPAT_LEVEL >= 53
+  no_args(list, 0);
+#else
   no_args(list);
+#endif
 
   /* Complain if we're not within a proper callback function. */
   if (circlebash_current_handle == NULL) {
@@ -131,7 +139,11 @@ circle_dequeue_builtin (WORD_LIST *list)
   YES_ARGS(list);
   varname = list->word->word;
   list = list->next;
+#if DEFAULT_COMPAT_LEVEL >= 53
+  no_args(list, 0);
+#else
   no_args(list);
+#endif
 
   /* Complain if we're not within a callback function. */
   if (circlebash_current_handle == NULL) {
