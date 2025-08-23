@@ -10,11 +10,7 @@
 static int
 mpi_barrier_builtin (WORD_LIST * list)
 {
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   MPI_TRY(MPI_Barrier(MPI_COMM_WORLD));
   return EXECUTION_SUCCESS;
 }
@@ -64,11 +60,7 @@ mpi_bcast_builtin (WORD_LIST *list)
   varname = list->word->word;
   REQUIRE_WRITABLE(varname);
   list = list->next;
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
 
   /* Acquire global agreement on the root and the message size. */
   if (all_lengths == NULL)
@@ -222,11 +214,7 @@ reduction_like (WORD_LIST *list, char *funcname, reduction_func_t func)
   if (mpibash_rank != 0 || (void *)func != (void *)MPI_Exscan)
     REQUIRE_WRITABLE(varname);
   list = list->next;
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
 
   /* Perform the reduction operation.  Bind the given array variable
    * to the result and, for minloc/maxloc, the associated rank. */

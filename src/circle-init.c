@@ -148,11 +148,7 @@ circle_init_builtin (WORD_LIST *list)
   char **func;
 
   /* Initialize Libcircle. */
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   circle_rank = CIRCLE_init(margc, margv, CIRCLE_DEFAULT_FLAGS);
   mpibash_bind_variable_number("circle_rank", circle_rank, 0);
   CIRCLE_enable_logging(CIRCLE_LOG_WARN);
@@ -193,11 +189,7 @@ DEFINE_BUILTIN(circle_init, "circle_init");
 static int
 circle_finalize_builtin (WORD_LIST *list)
 {
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   CIRCLE_finalize();
   return EXECUTION_SUCCESS;
 }
@@ -220,11 +212,7 @@ DEFINE_BUILTIN(circle_finalize, "circle_finalize");
 int
 circle_abort_builtin (WORD_LIST *list)
 {
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   CIRCLE_abort();
   return EXECUTION_SUCCESS;
 }

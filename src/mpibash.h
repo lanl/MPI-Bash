@@ -72,6 +72,15 @@
     0                  /* Reserved */                           \
   }
 
+/* Maintain compatibility with both bash 5.3+, in which no_args takes
+ * two arguments, and earlier versions of bash, in which no_args takes
+ * one argument. */
+#if DEFAULT_COMPAT_LEVEL >= 53
+# define NO_ARGS(L) no_args(L, 0)
+#else
+# define NO_ARGS(L) no_args(L)
+#endif
+
 /* Declare all of the library-local variables and functions we need. */
 extern int mpibash_rank;
 extern int mpibash_num_ranks;

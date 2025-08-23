@@ -58,11 +58,7 @@ mpi_init_builtin (WORD_LIST *list)
   char **func;
 
   /* Initialize MPI. */
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   MPI_Initialized(&inited);
   if (!inited) {
     /* MPI_Init() has not yet been called.  For Open MPI, at least,
@@ -114,11 +110,7 @@ DEFINE_BUILTIN(mpi_init, "mpi_init");
 static int
 mpi_finalize_builtin (WORD_LIST *list)
 {
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   if (we_called_init)
     if (MPI_Finalize() != MPI_SUCCESS)
       return EXECUTION_FAILURE;
@@ -151,11 +143,7 @@ mpi_comm_rank_builtin (WORD_LIST *list)
   varname = list->word->word;
   REQUIRE_WRITABLE(varname);
   list = list->next;
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   mpibash_bind_variable_number(varname, mpibash_rank, 0);
   return EXECUTION_SUCCESS;
 }
@@ -185,11 +173,7 @@ mpi_comm_size_builtin (WORD_LIST *list)
   varname = list->word->word;
   REQUIRE_WRITABLE(varname);
   list = list->next;
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   mpibash_bind_variable_number(varname, mpibash_num_ranks, 0);
   return EXECUTION_SUCCESS;
 }

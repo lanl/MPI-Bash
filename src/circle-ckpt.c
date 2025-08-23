@@ -10,11 +10,7 @@
 static int
 circle_checkpoint_builtin (WORD_LIST *list)
 {
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   CIRCLE_checkpoint();
   return EXECUTION_SUCCESS;
 }
@@ -40,11 +36,7 @@ DEFINE_BUILTIN(circle_checkpoint, "circle_checkpoint");
 static int
 circle_read_restarts_builtin (WORD_LIST *list)
 {
-#if DEFAULT_COMPAT_LEVEL >= 53
-  no_args(list, 0);
-#else
-  no_args(list);
-#endif
+  NO_ARGS(list);
   CIRCLE_read_restarts();
   return EXECUTION_SUCCESS;
 }
