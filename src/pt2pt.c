@@ -50,7 +50,11 @@ mpi_send_builtin (WORD_LIST * list)
   YES_ARGS(list);
   message = list->word->word;
   list = list->next;
+#if DEFAULT_COMPAT_LEVEL >= 53
+  no_args(list, 0);
+#else
   no_args(list);
+#endif
 
   /* Send the message. */
   MPI_TRY(MPI_Send(message, strlen(message) + 1, MPI_BYTE, (int)target_rank,
@@ -132,7 +136,11 @@ mpi_recv_builtin (WORD_LIST *list)
   varname = list->word->word;
   REQUIRE_WRITABLE(varname);
   list = list->next;
+#if DEFAULT_COMPAT_LEVEL >= 53
+  no_args(list, 0);
+#else
   no_args(list);
+#endif
 
   /* Receive a message.  Because we don't know long the message will
    * be, we first probe to get the length. */

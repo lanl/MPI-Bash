@@ -105,7 +105,11 @@ mpibash_find_callback_function (WORD_LIST *list, SHELL_VAR **user_func)
   /* Get the callback function. */
   funcname = list->word->word;
   list = list->next;
+#if DEFAULT_COMPAT_LEVEL >= 53
+  no_args(list, 0);
+#else
   no_args(list);
+#endif
   *user_func = find_function(funcname);
   if (*user_func == NULL) {
     builtin_error(_("function %s not found"), funcname);
